@@ -1,6 +1,9 @@
 import os
+import json
+import gspread
+from datetime import datetime
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage, PostbackEvent
@@ -123,6 +126,34 @@ def parse_command(text):
 
     else:
         return {'type': 'text', 'text': '\u2753 \u770b\u4e0d\u61c2\uff0c\u8f38\u5165\u300c\u8aaa\u660e\u300d\u67e5\u770b\u6307\u4ee4'}
+
+# ===== 金鑰驗證端點（授權伺服器）=====
+KEY_SHEET_ID = '1EzQtm2Egg4A-5DIRB-o_F_eWzksEeEjL-3_SWZ3dHq8'
+
+@app.route('/verify-key', methods=['POST'])
+def verify_key():
+    try:
+        data = request.get_json(silent=True) or {}
+        key = str(data.get('key', '')).strip()
+        if not key:
+            return jsonify({'valid': False, 'message': '未提供金鑰'}), 400
+        gc = gspread.authorize(case_mgr._get_creds())
+        ws = gc.open_by_key(KEY_SHEET_ID).sheet1
+        records = ws.get_all_records()
+        today = datetime.now().strftime('%Y/%m/%d')
+        for r in records:
+            if str(r.get('金鑰', '')).strip() == key:
+                status = str(r.get('狀態', '')).strip()
+                expiry = str(r.get('到期日', '')).strip()
+                user   = str(r.get('用戶', '')).strip()
+                if status != '有效':
+                    return jsonify({'valid': False, 'message': '金鑰已停用'})
+                if expiry and expiry < today:
+                    return jsonify({'valid': False, 'message': f'金鑰已於 {expiry} 到期'})
+                return jsonify({'valid': True, 'user': user, 'expiry': expiry})
+        return jsonify({'valid': False, 'message': '金鑰不存在'})
+    except Exception as e:
+        return jsonify({'valid': False, 'message': f'驗證錯誤：{str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
