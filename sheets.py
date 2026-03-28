@@ -123,7 +123,7 @@ class SheetsDB:
     def count_cases_by_status(self) -> dict:
         """回傳每日早報用的保服統計"""
         ws = self._ws(WS_CASES)
-        counts = {"已聯絡": 0, "已送出": 0, "核對中": 0}
+        counts = {"待處理": 0, "已聯絡": 0, "已送出": 0, "核對中": 0}
         for r in ws.get_all_records():
             s = r.get("狀態", "")
             if s in counts:
