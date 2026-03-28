@@ -1,5 +1,6 @@
 """
 flex_message.py ── 所有 LINE Flex Message 組裝函式
+更新：2026/03/28
 """
 from urllib.parse import quote
 
