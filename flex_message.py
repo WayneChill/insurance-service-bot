@@ -217,7 +217,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                     {"type": "box", "layout": "vertical", "flex": 3,
                      "contents": [
                          {"type": "text", "text": f"{rid} {name}", "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                         {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
+                         {"type": "text", "text": phone if phone else "-", "size": "xxs", "color": "#888780"},
                      ]},
                     {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
                      "align": "end", "flex": 2, "gravity": "center"},
