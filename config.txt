@@ -1,0 +1,27 @@
+# ============================================================
+# 保險發展小幫手 - 設定檔
+# Railway 環境變數優先；本機測試才填這裡
+# ============================================================
+
+# LINE Bot（從 LINE Developers Console 取得）
+LINE_CHANNEL_ACCESS_TOKEN=請填入您的LINE_Channel_Access_Token
+LINE_CHANNEL_SECRET=請填入您的LINE_Channel_Secret
+
+# 推播對象（你自己的 LINE User ID）
+LINE_USER_ID=請填入您的LINE_User_ID
+
+# Google 服務帳號憑證
+GOOGLE_CREDENTIALS_FILE=credentials.json
+# 或 Railway 環境變數 GOOGLE_CREDENTIALS_B64（JSON base64）
+
+# Google Sheets ID（保服案件 + 業務追蹤 + 增員追蹤 同一份）
+GOOGLE_SHEET_ID=請填入您的Google試算表ID
+
+# Google Drive 資料夾 ID（存放 42003.xlsx / 42004.xlsx）
+# 留空則自動搜尋名稱為「保服資料」的資料夾
+DRIVE_FOLDER_ID=
+
+# 授權金鑰
+LICENSE_KEY=請填入授權金鑰
+
+PORT=5000
