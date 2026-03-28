@@ -48,10 +48,15 @@ class SheetsDB:
     """單例式 Google Sheets 連線（app 啟動時初始化一次）"""
 
     def __init__(self):
+        print("[DB] 開始連線 Google Sheets...", flush=True)
         creds = _get_creds()
+        print("[DB] 憑證取得成功", flush=True)
         gc = gspread.authorize(creds)
+        print(f"[DB] 嘗試開啟 GOOGLE_SHEET_ID: {os.environ.get('GOOGLE_SHEET_ID','未設定')}", flush=True)
         self.spreadsheet = gc.open_by_key(os.environ["GOOGLE_SHEET_ID"])
+        print("[DB] Sheets 連線成功", flush=True)
         self._ensure_sheets()
+        print("[DB] 工作表初始化完成", flush=True)
 
     # ── 初始化工作表 ───────────────────────────────────────────
     def _ensure_sheets(self):
