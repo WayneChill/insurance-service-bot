@@ -97,7 +97,9 @@ def run_daily(db):
         _push_text(token, user_id, report)
         print("[排程] 每日早報發送成功")
     except Exception as e:
+        import traceback
         print(f"[排程] 早報發送失敗：{e}")
+        traceback.print_exc()
 
 
 # ── 啟動排程 ──────────────────────────────────────────────
