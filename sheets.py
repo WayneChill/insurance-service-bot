@@ -99,7 +99,7 @@ class SheetsDB:
         ws = self._ws(WS_CASES)
         records = ws.get_all_records()
         case_id = "C" + str(len(records) + 1).zfill(3)
-        ws.append_row([case_id, name, service_type, policy, "待處理", note, _now(), _now()])
+        ws.append_row([case_id, name, service_type, policy, "已聯絡", note, _now(), _now()])
         return case_id
 
     def get_cases(self, name: str) -> list:
@@ -108,7 +108,7 @@ class SheetsDB:
 
     def get_all_pending_cases(self) -> list:
         ws = self._ws(WS_CASES)
-        pending_statuses = {"待處理", "已聯絡", "已送出", "核對中"}
+        pending_statuses = {"已聯絡", "已送出", "核對中"}
         return [r for r in ws.get_all_records() if r.get("狀態", "") in pending_statuses]
 
     def update_case_status(self, case_id: str, status: str) -> bool:
@@ -123,7 +123,7 @@ class SheetsDB:
     def count_cases_by_status(self) -> dict:
         """回傳每日早報用的保服統計"""
         ws = self._ws(WS_CASES)
-        counts = {"待處理": 0, "已聯絡": 0, "已送出": 0, "核對中": 0}
+        counts = {"已聯絡": 0, "已送出": 0, "核對中": 0}
         for r in ws.get_all_records():
             s = r.get("狀態", "")
             if s in counts:

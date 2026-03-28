@@ -163,7 +163,7 @@ def build_case_created_card(case_id: str, name: str, service: str, policy: str =
     from datetime import datetime
     c = {
         "案件ID": case_id, "客戶姓名": name, "服務項目": service,
-        "保單號碼": policy, "狀態": "待處理",
+        "保單號碼": policy, "狀態": "已聯絡",
         "建立時間": datetime.now().strftime("%Y/%m/%d %H:%M"),
     }
     return {

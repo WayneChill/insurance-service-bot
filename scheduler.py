@@ -52,7 +52,6 @@ def _build_morning_report(db) -> str:
         f"▪️ 保單周年：{life_stats['anniversary_count']} 組",
         "",
         "📋 保服區",
-        f"▪️ 待處理：{case_counts.get('待處理', 0)} 件",
         f"▪️ 已聯絡：{case_counts.get('已聯絡', 0)} 件",
         f"▪️ 已送出：{case_counts.get('已送出', 0)} 件",
         f"▪️ 核對中：{case_counts.get('核對中', 0)} 件",
