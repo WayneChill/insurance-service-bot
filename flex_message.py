@@ -28,6 +28,10 @@ PROP_STATUS_COLOR = {"已報價": "#3B82F6", "延後3天": "#F59E0B", "延後7�
 
 TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
+# 業務 / 增員階段按鈕
+BIZ_STAGES_DEF     = [("已聯繫", "#888780"), ("建議書", "#4DABF7"), ("約簽約", "#FF922B"), ("送保單", "#20C997")]
+RECRUIT_STAGES_DEF = [("已聯繫", "#888780"), ("約聊聊", "#4DABF7"), ("約簽約", "#FF922B")]
+
 
 # ══════════════════════════════════════════════════════════
 # 保服相關
@@ -200,29 +204,59 @@ def _case_item(c, name):
 # ══════════════════════════════════════════════════════════
 
 def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
-    """顯示業務/增員列表，每筆一行"""
+    """顯示業務/增員列表，每筆含階段更新按鈕"""
+    is_recruit = "增員" in title
+    stages_def = RECRUIT_STAGES_DEF if is_recruit else BIZ_STAGES_DEF
+    prefix     = "更新增員" if is_recruit else "更新業務"
+
     if not records:
         items = [{"type": "text", "text": "目前沒有記錄", "size": "sm", "color": "#888780"}]
     else:
         items = []
-        for r in records[:20]:
+        for r in records[:10]:
             rid   = str(r.get("ID", "") or "").strip() or "-"
             name  = str(r.get("姓名", "") or "").strip() or "-"
             stage = str(r.get("階段", "") or "").strip() or "-"
-            phone = str(r.get("電話", "") or "").strip() or "-"
-            label = f"{rid} {name}".strip() or "-"
+            phone_raw = r.get("電話", "")
+            if isinstance(phone_raw, (int, float)) and phone_raw:
+                phone = "0" + str(int(phone_raw))
+            else:
+                phone = str(phone_raw).strip() or "-"
+
+            btn_rows = []
+            for i in range(0, len(stages_def), 2):
+                pair = stages_def[i:i+2]
+                btn_rows.append({
+                    "type": "box", "layout": "horizontal", "spacing": "xs",
+                    "contents": [
+                        {"type": "button",
+                         "action": {"type": "message", "label": s, "text": f"{prefix} {rid} {s}"},
+                         "style": "primary", "color": c, "height": "sm", "flex": 1}
+                        for s, c in pair
+                    ]
+                })
+
             items.append({
-                "type": "box", "layout": "horizontal", "spacing": "sm",
-                "paddingAll": "8px", "backgroundColor": "#F1EFE8",
+                "type": "box", "layout": "vertical", "spacing": "xs",
+                "paddingAll": "10px", "backgroundColor": "#F1EFE8",
                 "cornerRadius": "6px", "margin": "sm",
                 "contents": [
-                    {"type": "box", "layout": "vertical", "flex": 3,
+                    {"type": "box", "layout": "horizontal",
                      "contents": [
-                         {"type": "text", "text": label, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                         {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
+                         {"type": "box", "layout": "vertical", "flex": 3,
+                          "contents": [
+                              {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
+                              {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
+                          ]},
+                         {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
+                          "contents": [
+                              {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
+                              {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
+                               "align": "end", "weight": "bold"},
+                          ]},
                      ]},
-                    {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
-                     "align": "end", "flex": 2, "gravity": "center"},
+                    {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
+                     "contents": btn_rows},
                 ]
             })
 
