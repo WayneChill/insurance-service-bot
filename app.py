@@ -175,13 +175,91 @@ def _parse_command(text: str) -> dict:
             traceback.print_exc()
             return _t(f"❌ 早報錯誤：{e}")
 
-    # 待辦
-    elif cmd == "待辦":
+    # 保服（待處理案件列表）
+    elif cmd == "保服":
         pending  = get_db().get_all_pending_cases()
         if not pending:
             return _t("✅ 目前沒有待處理的保服案件")
-        contents = build_cases_card("待辦", pending)
-        return _f("待辦案件", contents)
+        contents = build_cases_card("保服案件", pending)
+        return _f("保服案件", contents)
+        
+ # 待辦（今日彙整）
+    elif cmd == "待辦":
+        try:
+            import pandas as pd
+            from excel_reader import download_excel, get_life_daily_detail
+            from datetime import datetime
+
+            # 產險急件
+            buf = download_excel("42004.xlsx")
+            df  = pd.read_excel(buf, header=3)
+            df.columns = df.columns.str.strip()
+            df = df[df["保單號碼"].notna()]
+            df = df[~df["保單號碼"].astype(str).str.contains("險種代號|附約")]
+            def _roc(v):
+                try:
+                    s = str(int(v)).zfill(7)
+                    return pd.Timestamp(int(s[0:3])+1911, int(s[3:5]), int(s[5:7]))
+                except: return pd.NaT
+            df["到期日"] = df["保險迄日"].apply(_roc)
+            today = pd.Timestamp(datetime.today().date())
+            df["剩餘天數"] = (df["到期日"] - today).dt.days
+            urgent_df = df[
+                df["剩餘天數"].notna() &
+                df["剩餘天數"].between(0, 10) &
+                df["狀態"].astype(str).str.contains("正常")
+            ]
+            statuses = get_db().get_property_status()
+            skip = {"續保完成", "不續保"}
+            urgent_list = []
+            for _, row in urgent_df.iterrows():
+                pid = str(row["保單號碼"]).strip()
+                cur = statuses.get(pid, {}).get("status", "")
+                if cur not in skip:
+                    urgent_list.append(f"▪️ {row['被保姓名']} 倒數{int(row['剩餘天數'])}天")
+
+            # 保服未完成
+            cases = get_db().get_all_pending_cases()
+
+            # 業務待跟進
+            biz = [r for r in get_db().get_biz_list() if r.get("階段") in ["已聯繫", "建議書"]]
+
+            # 增員待跟進
+            recruit = [r for r in get_db().get_recruit_list() if r.get("階段") in ["已聯繫", "約聊聊"]]
+
+            lines = ["📌 今日待辦彙整", ""]
+            lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
+            for u in urgent_list[:5]:
+                lines.append(u)
+            if not urgent_list:
+                lines.append("▪️ 無急件")
+
+            lines.append("")
+            lines.append(f"📋 保服未完成（{len(cases)} 件）")
+            for c in cases[:5]:
+                lines.append(f"▪️ {c.get('客戶姓名','')} {c.get('服務項目','')} [{c.get('狀態','')}]")
+            if not cases:
+                lines.append("▪️ 無待處理")
+
+            lines.append("")
+            lines.append(f"💼 業務待跟進（{len(biz)} 組）")
+            for b in biz[:5]:
+                lines.append(f"▪️ {b.get('姓名','')} [{b.get('階段','')}]")
+            if not biz:
+                lines.append("▪️ 無待跟進")
+
+            lines.append("")
+            lines.append(f"👥 增員待跟進（{len(recruit)} 組）")
+            for r in recruit[:5]:
+                lines.append(f"▪️ {r.get('姓名','')} [{r.get('階段','')}]")
+            if not recruit:
+                lines.append("▪️ 無待跟進")
+
+            return _t("\n".join(lines))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return _t(f"❌ 待辦彙整錯誤：{e}")
 
     # 說明 / help
     elif cmd in ("說明", "help", "?"):
