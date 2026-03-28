@@ -107,7 +107,7 @@ def _single_bubble(client, search_name, cards=None):
             "contents": [
                 {"type": "text", "text": name, "weight": "bold", "size": "xl",
                  "color": "#2C2C2A", "align": "center"},
-                {"type": "text", "text": client.get("idno", ""), "size": "xs",
+                {"type": "text", "text": client.get("idno", "") or "-", "size": "xs",
                  "color": "#888780", "margin": "xs", "align": "center"},
             ]
         },
@@ -273,7 +273,7 @@ def build_life_detail_card(detail: dict) -> dict:
                           "weight": "bold", "color": "#2C2C2A"},
                          {"type": "text", "text": b["dob"], "size": "xxs", "color": "#888780"},
                      ]},
-                    {"type": "text", "text": b.get("tel", ""), "size": "xs",
+                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "xs",
                      "color": "#0F6E56", "align": "end", "flex": 2, "gravity": "center"},
                 ]
             })
@@ -298,7 +298,7 @@ def build_life_detail_card(detail: dict) -> dict:
                      ]},
                     {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
                      "size": "xxs", "color": "#888780"},
-                    {"type": "text", "text": a.get("tel", ""),
+                    {"type": "text", "text": str(a.get("tel", "") or "").strip() or "-",
                      "size": "xxs", "color": "#0F6E56"},
                 ]
             })
