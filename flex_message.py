@@ -217,6 +217,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
             rid   = str(r.get("ID", "") or "").strip() or "-"
             name  = str(r.get("姓名", "") or "").strip() or "-"
             stage = str(r.get("階段", "") or "").strip() or "-"
+            note  = str(r.get("備註", "") or "").strip()
             phone_raw = r.get("電話", "")
             if isinstance(phone_raw, (int, float)) and phone_raw:
                 phone = "0" + str(int(phone_raw))
@@ -236,31 +237,42 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                     ]
                 })
 
+            card_contents = [
+                {"type": "box", "layout": "horizontal",
+                 "contents": [
+                     {"type": "box", "layout": "vertical", "flex": 3,
+                      "contents": [
+                          {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
+                      ]},
+                     {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
+                      "contents": [
+                          {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
+                           "align": "end", "weight": "bold"},
+                      ]},
+                 ]},
+            ]
+            if note:
+                card_contents.append({
+                    "type": "text", "text": f"📝 {note}",
+                    "size": "xxs", "color": "#5F5E5A", "wrap": True, "margin": "xs"
+                })
+            card_contents.append({
+                "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
+                "contents": btn_rows
+            })
+            card_contents.append({
+                "type": "button",
+                "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {rid}"},
+                "style": "secondary", "height": "sm", "margin": "sm"
+            })
+
             items.append({
                 "type": "box", "layout": "vertical", "spacing": "xs",
                 "paddingAll": "10px", "backgroundColor": "#F1EFE8",
                 "cornerRadius": "6px", "margin": "sm",
-                "contents": [
-                    {"type": "box", "layout": "horizontal",
-                     "contents": [
-                         {"type": "box", "layout": "vertical", "flex": 3,
-                          "contents": [
-                              {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                              {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
-                          ]},
-                         {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
-                          "contents": [
-                              {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
-                              {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
-                               "align": "end", "weight": "bold"},
-                          ]},
-                     ]},
-                    {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
-                     "contents": btn_rows},
-                    {"type": "button",
-                     "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {rid}"},
-                     "style": "secondary", "height": "sm", "margin": "sm"},
-                ]
+                "contents": card_contents
             })
 
     return {
@@ -492,10 +504,8 @@ def build_help_message(pending_cases=None) -> dict:
         ("壽險",              "查看當日壽星/保單周年"),
         ("業務",              "查看業務追蹤列表"),
         ("增員",              "查看增員追蹤列表"),
-        ("新增業務 姓名 電話 階段", "新增業務追蹤（階段：已聯繫/建議書/約簽約/送保單）"),
-        ("新增增員 姓名 電話 階段", "新增增員追蹤（階段：已聯繫/約聊聊/約簽約）"),
-        ("更新業務 ID 階段", "更新業務追蹤階段"),
-        ("更新增員 ID 階段", "更新增員追蹤階段"),
+        ("新增業務 姓名 電話", "新增業務追蹤"),
+        ("新增增員 姓名 電話", "新增增員追蹤"),
         ("新增卡片 姓名 銀行 卡號前4碼 效期", "新增信用卡"),
         ("刪除卡片 姓名 銀行 卡號前4碼", "刪除信用卡"),
         ("說明",              "顯示此說明"),
