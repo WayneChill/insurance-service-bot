@@ -51,7 +51,8 @@ class SheetsDB:
         print("[DB] 開始連線 Google Sheets...", flush=True)
         creds = _get_creds()
         print("[DB] 憑證取得成功", flush=True)
-        gc = gspread.authorize(creds)
+        gc = gspread.Client(auth=creds)
+        gc.session = gspread.auth.local_server_flow  # 不用這行，刪掉
         print(f"[DB] 嘗試開啟 GOOGLE_SHEET_ID: {os.environ.get('GOOGLE_SHEET_ID','未設定')}", flush=True)
         self.spreadsheet = gc.open_by_key(os.environ["GOOGLE_SHEET_ID"])
         print("[DB] Sheets 連線成功", flush=True)
