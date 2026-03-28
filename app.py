@@ -358,6 +358,17 @@ def _parse_command(text: str) -> dict:
         contents = build_biz_single_card(rid, name, phone, stage, "👥 增員追蹤")
         return _f(f"已新增增員 {name}", contents)
 
+    # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面
+    elif cmd == "記錄" and len(parts) >= 2:
+        rid = parts[1]
+        if len(parts) >= 3:
+            note     = " ".join(parts[2:])
+            is_biz   = rid.upper().startswith("B")
+            name     = get_db().update_biz_note(rid, note) if is_biz else get_db().update_recruit_note(rid, note)
+            return _t(f"✅ {rid} 備註已記錄：{note}" if name else f"❌ 找不到 {rid}")
+        else:
+            return _t(f"✏️ 請輸入備註內容：\n格式：記錄 {rid} [內容]\n例：記錄 {rid} 已約好下週三見面")
+
     # 更新業務 <ID> <階段>  例：更新業務 B001 建議書
     elif cmd == "更新業務" and len(parts) >= 3:
         rid   = parts[1]

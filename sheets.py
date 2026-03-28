@@ -169,6 +169,16 @@ class SheetsDB:
                 return True
         return False
 
+    def update_biz_note(self, rid: str, note: str) -> str:
+        """更新業務備註，回傳姓名（找不到回傳空字串）"""
+        ws = self._ws(WS_BIZ)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
+
     def count_biz_by_stage(self) -> dict:
         counts = {s: 0 for s in BIZ_STAGES}
         for r in self._ws(WS_BIZ).get_all_records():
@@ -198,6 +208,16 @@ class SheetsDB:
                 ws.update_cell(i, 7, _now())
                 return True
         return False
+
+    def update_recruit_note(self, rid: str, note: str) -> str:
+        """更新增員備註，回傳姓名（找不到回傳空字串）"""
+        ws = self._ws(WS_RECRUIT)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
 
     def count_recruit_by_stage(self) -> dict:
         counts = {s: 0 for s in RECRUIT_STAGES}

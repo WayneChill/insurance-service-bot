@@ -29,8 +29,8 @@ PROP_STATUS_COLOR = {"已報價": "#3B82F6", "延後3天": "#F59E0B", "延後7�
 TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
 # 業務 / 增員階段按鈕
-BIZ_STAGES_DEF     = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#FF9F43"), ("已結案", "#1DD1A1")]
-RECRUIT_STAGES_DEF = [("已聯繫", "#54A0FF"), ("約聊聊", "#00D2D3"), ("約報聘", "#FF9F43"), ("已結案", "#1DD1A1")]
+BIZ_STAGES_DEF     = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#1DD1A1"), ("已結案", "#FF9F43")]
+RECRUIT_STAGES_DEF = [("已聯繫", "#54A0FF"), ("約聊聊", "#00D2D3"), ("約報聘", "#1DD1A1"), ("已結案", "#FF9F43")]
 
 
 # ══════════════════════════════════════════════════════════
@@ -257,6 +257,9 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                      ]},
                     {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
                      "contents": btn_rows},
+                    {"type": "button",
+                     "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {rid}"},
+                     "style": "secondary", "height": "sm", "margin": "sm"},
                 ]
             })
 
@@ -321,6 +324,9 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
                  ]},
                 {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
                  "contents": btn_rows},
+                {"type": "button",
+                 "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {rid}"},
+                 "style": "secondary", "height": "sm", "margin": "sm"},
             ]
         }
     }
