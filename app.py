@@ -410,6 +410,61 @@ def _reply_flex(event, alt: str, contents: dict):
     line_bot.reply_message(event.reply_token, FlexSendMessage(alt_text=alt, contents=contents))
 
 
+LICENSE_SHEET_ID = os.environ.get("LICENSE_SHEET_ID", "1EzQtm2Egg4A-5DIRB-o_F_eWzksEeEjL-3_SWZ3dHq8")
+
+# ── 授權金鑰驗證端點 ──────────────────────────────────────
+@app.route("/verify-key", methods=["POST"])
+def verify_key():
+    from flask import jsonify
+    import gspread, base64, tempfile
+    from datetime import datetime as _dt
+    try:
+        body           = request.get_json(force=True) or {}
+        key            = body.get("key", "").strip()
+        channel_secret = body.get("channel_secret", "").strip()
+        if not key:
+            return jsonify({"valid": False, "message": "未提供金鑰"}), 400
+
+        b64 = os.environ.get("GOOGLE_CREDENTIALS_B64", "")
+        if b64:
+            info = json.loads(base64.b64decode(b64).decode("utf-8"))
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+                json.dump(info, f)
+                tmp_path = f.name
+            gc = gspread.service_account(filename=tmp_path)
+            os.unlink(tmp_path)
+        else:
+            path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+            gc = gspread.service_account(filename=path)
+
+        rows = gc.open_by_key(LICENSE_SHEET_ID).sheet1.get_all_values()
+        for row in rows:
+            if not row or row[0].strip() != key:
+                continue
+            # A=金鑰 B=用戶名稱 C=到期日 D=狀態 E=Channel Secret
+            user   = row[1] if len(row) > 1 else ""
+            expiry = row[2] if len(row) > 2 else ""
+            status = row[3] if len(row) > 3 else ""
+            secret = row[4].strip() if len(row) > 4 else ""
+
+            if status != "啟用":
+                return jsonify({"valid": False, "message": "金鑰已停用"})
+            try:
+                if _dt.strptime(expiry, "%Y/%m/%d") < _dt.today():
+                    return jsonify({"valid": False, "message": "金鑰已過期"})
+            except ValueError:
+                pass
+            if secret and channel_secret != secret:
+                return jsonify({"valid": False, "message": "金鑰與帳號不符"})
+            return jsonify({"valid": True, "user": user, "expiry": expiry})
+
+        return jsonify({"valid": False, "message": "金鑰不存在"})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"valid": False, "message": f"驗證錯誤：{e}"}), 500
+
+
 # ── 健康檢查 ──────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 def index():
