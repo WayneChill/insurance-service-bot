@@ -206,10 +206,10 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
     else:
         items = []
         for r in records[:20]:
-            rid   = r.get("ID", "") or "-"
-            name  = r.get("姓名", "") or "-"
-            stage = r.get("階段", "") or "-"
-            phone = r.get("電話", "") or "-"
+            rid   = str(r.get("ID", "") or "").strip() or "-"
+            name  = str(r.get("姓名", "") or "").strip() or "-"
+            stage = str(r.get("階段", "") or "").strip() or "-"
+            phone = str(r.get("電話", "") or "").strip() or "-"
             label = f"{rid} {name}".strip() or "-"
             items.append({
                 "type": "box", "layout": "horizontal", "spacing": "sm",
