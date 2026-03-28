@@ -1,7 +1,7 @@
 """
 app.py ── 保險發展小幫手 LINE Bot
 合併：產險助手 + 保服助手
-Railway 部署：insurance-service-bot 專案
+Railway 部署：insurance-service-bot 專案（主）
 """
 import os
 import json
