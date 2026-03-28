@@ -1,0 +1,292 @@
+"""
+app.py ── 保險發展小幫手 LINE Bot
+合併：產險助手 + 保服助手
+Railway 部署：insurance-service-bot 專案
+"""
+import os
+import json
+from urllib.parse import unquote
+from datetime import datetime
+from flask import Flask, request, abort
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import (
+    MessageEvent, TextMessage, TextSendMessage,
+    FlexSendMessage, PostbackEvent
+)
+
+# ── 讀取 config.txt（Railway 環境變數優先）────────────────
+def _read_config():
+    config = {}
+    if os.path.exists("config.txt"):
+        with open("config.txt", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    config[k.strip()] = v.strip()
+    return config
+
+_cfg = _read_config()
+for _k, _v in _cfg.items():
+    if _k not in os.environ:
+        os.environ[_k] = _v
+
+# 自用版，無需授權金鑰驗證
+
+# ── 初始化 ────────────────────────────────────────────────
+from sheets import SheetsDB
+from excel_reader import search_client
+from flex_message import (
+    build_client_card, build_cases_card,
+    build_biz_list_card, build_help_message
+)
+from scheduler import start_scheduler
+
+app      = Flask(__name__)
+line_bot = LineBotApi(os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
+handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
+
+# ── Lazy DB（第一次收到請求才連線，避免啟動卡死）──────────
+_db = None
+
+def get_db():
+    global _db
+    if _db is None:
+        print("[DB] 初始化 SheetsDB...", flush=True)
+        _db = SheetsDB()
+        print("[DB] 完成，啟動排程", flush=True)
+        start_scheduler(_db)
+    return _db
+
+# ── Webhook ───────────────────────────────────────────────
+@app.route("/callback", methods=["POST"])
+def callback():
+    signature = request.headers.get("X-Line-Signature", "")
+    body      = request.get_data(as_text=True)
+    print("RECV", body[:80], flush=True)
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return str(e), 500
+    return "OK"
+
+# ── 文字訊息處理 ──────────────────────────────────────────
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    text  = event.message.text.strip()
+    reply = _parse_command(text)
+    if reply["type"] == "flex":
+        line_bot.reply_message(
+            event.reply_token,
+            FlexSendMessage(alt_text=reply["alt"], contents=reply["contents"])
+        )
+    else:
+        line_bot.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply["text"])
+        )
+
+# ── Postback 處理 ─────────────────────────────────────────
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    data   = event.postback.data
+    params = dict(p.split("=", 1) for p in data.split("&") if "=" in p)
+    action = params.get("action", "")
+    name   = unquote(params.get("name", ""))
+    policy = unquote(params.get("policy", ""))
+
+    # ── 保服案件開立（理賠/契變/保費變更）
+    if action in ("理賠", "契變", "保費變更"):
+        case_id = get_db().add_case(name, action, policy)
+        _reply_text(event, f"✅ 已開立案件 #{case_id}\n客戶：{name}\n項目：{action}\n\n輸入「進度 {name}」查看進度")
+
+    # ── 保服案件狀態更新
+    elif action == "update":
+        case_id = unquote(params.get("id", ""))
+        status  = unquote(params.get("status", ""))
+        get_db().update_case_status(case_id, status)
+        _reply_text(event, f"✅ 案件 #{case_id} 已更新為「{status}」")
+
+    # ── 查看保服進度
+    elif action == "check_cases":
+        cases    = get_db().get_cases(name)
+        contents = build_cases_card(name, cases)
+        _reply_flex(event, f"保服進度：{name}", contents)
+
+    # ── 產險 Postback（報價/延後/不續保/續保完成）
+    elif action in ("quoted", "delay", "delay7", "cancel", "done"):
+        policy_id = unquote(params.get("id", ""))
+        pname     = unquote(params.get("name", "保戶"))
+        _LABELS = {
+            "quoted": "已報價", "delay": "延後3天", "delay7": "延後7天",
+            "cancel": "不續保", "done":  "續保完成",
+        }
+        _REPLIES = {
+            "quoted": f"📋 {pname} 已報價，等待客戶確認",
+            "delay":  f"⏰ {pname} 已延後，將在3天後提醒",
+            "delay7": f"🔄 {pname} 已延後，將在7天後提醒",
+            "cancel": f"❌ {pname} 已標記為不續保",
+            "done":   f"✅ {pname} 續保完成，已記錄",
+        }
+        label = _LABELS[action]
+        get_db().write_property_status(policy_id, pname, label)
+        _reply_text(event, _REPLIES[action])
+
+    else:
+        _reply_text(event, "未知操作")
+
+
+# ── 指令解析 ──────────────────────────────────────────────
+
+def _parse_command(text: str) -> dict:
+    parts = text.split()
+    cmd   = parts[0] if parts else ""
+
+    # 查詢 <姓名>
+    if cmd == "查詢" and len(parts) >= 2:
+        name    = parts[1]
+        clients = search_client(name)
+        if not clients:
+            return _t(f"❌ 找不到「{name}」的資料\n請確認姓名是否正確")
+        cards    = get_db().get_cards(name)
+        contents = build_client_card(clients, name, cards)
+        return _f(f"客戶資料：{name}", contents)
+
+    # 進度 <姓名>
+    elif cmd == "進度" and len(parts) >= 2:
+        name     = parts[1]
+        cases    = get_db().get_cases(name)
+        contents = build_cases_card(name, cases)
+        return _f(f"保服進度：{name}", contents)
+
+    # 待辦
+    elif cmd == "待辦":
+        pending  = get_db().get_all_pending_cases()
+        contents = build_help_message(pending)
+        return _f("待辦案件", contents)
+
+    # 說明 / help
+    elif cmd in ("說明", "help", "?"):
+        pending  = get_db().get_all_pending_cases()
+        contents = build_help_message(pending)
+        return _f("指令說明", contents)
+
+    # 產險（手動觸發產險列表）
+    elif cmd == "產險":
+        return _t("📊 產險資料請查看每日早報，或輸入「查詢 姓名」查詢個別客戶產險保單。")
+
+    # 壽險
+    elif cmd == "壽險":
+        from excel_reader import get_life_daily_stats
+        stats = get_life_daily_stats()
+        msg = (
+            "🎂 今日壽險摘要\n"
+            f"▪️ 當日壽星：{stats['birthday_count']} 位\n"
+            f"▪️ 保單周年：{stats['anniversary_count']} 組"
+        )
+        return _t(msg)
+
+    # 業務（列表）
+    elif cmd == "業務":
+        records  = get_db().get_biz_list()
+        contents = build_biz_list_card(records, "💼 業務追蹤")
+        return _f("業務追蹤", contents)
+
+    # 增員（列表）
+    elif cmd == "增員":
+        records  = get_db().get_recruit_list()
+        contents = build_biz_list_card(records, "👥 增員追蹤")
+        return _f("增員追蹤", contents)
+
+    # 新增業務 <姓名> <電話> <階段>
+    elif cmd == "新增業務" and len(parts) >= 2:
+        name  = parts[1]
+        phone = parts[2] if len(parts) >= 3 else ""
+        stage = parts[3] if len(parts) >= 4 else "已聯繫"
+        rid   = get_db().add_biz(name, phone, stage)
+        return _t(f"✅ 已新增業務追蹤 #{rid}\n姓名：{name}\n電話：{phone}\n階段：{stage}")
+
+    # 新增增員 <姓名> <電話> <階段>
+    elif cmd == "新增增員" and len(parts) >= 2:
+        name  = parts[1]
+        phone = parts[2] if len(parts) >= 3 else ""
+        stage = parts[3] if len(parts) >= 4 else "已聯繫"
+        rid   = get_db().add_recruit(name, phone, stage)
+        return _t(f"✅ 已新增增員追蹤 #{rid}\n姓名：{name}\n電話：{phone}\n階段：{stage}")
+
+    # 更新業務 <ID> <階段>  例：更新業務 B001 建議書
+    elif cmd == "更新業務" and len(parts) >= 3:
+        rid   = parts[1]
+        stage = parts[2]
+        ok    = get_db().update_biz_stage(rid, stage)
+        return _t(f"✅ 業務 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到業務 {rid}")
+
+    # 更新增員 <ID> <階段>
+    elif cmd == "更新增員" and len(parts) >= 3:
+        rid   = parts[1]
+        stage = parts[2]
+        ok    = get_db().update_recruit_stage(rid, stage)
+        return _t(f"✅ 增員 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到增員 {rid}")
+
+    # 新增卡片 <姓名> <銀行> <卡號前4碼> <效期> [保單號碼]
+    elif cmd == "新增卡片" and len(parts) >= 5:
+        c_name   = parts[1]
+        c_bank   = parts[2]
+        c_num    = parts[3]
+        c_exp    = parts[4]
+        c_policy = parts[5] if len(parts) >= 6 else ""
+        get_db().add_card(c_name, c_bank, c_num, c_exp, c_policy)
+        note = f"（指定保單：{c_policy}）" if c_policy else "（所有保單）"
+        return _t(f"✅ 已新增信用卡\n姓名：{c_name}\n銀行：{c_bank}\n卡號：{c_num}\n效期：{c_exp}\n{note}")
+
+    # 刪除卡片 <姓名> <銀行> <卡號前4碼>
+    elif cmd == "刪除卡片" and len(parts) >= 4:
+        c_name = parts[1]
+        c_bank = parts[2]
+        c_num  = parts[3]
+        ok     = get_db().delete_card(c_name, c_bank, c_num)
+        if ok:
+            return _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num} 的信用卡")
+        return _t("❌ 找不到該信用卡")
+
+    else:
+        return _t("❓ 看不懂指令，輸入「說明」查看所有指令")
+
+
+# ── 工具 ──────────────────────────────────────────────────
+
+def _t(text: str) -> dict:
+    return {"type": "text", "text": text}
+
+def _f(alt: str, contents: dict) -> dict:
+    return {"type": "flex", "alt": alt, "contents": contents}
+
+def _reply_text(event, text: str):
+    line_bot.reply_message(event.reply_token, TextSendMessage(text=text))
+
+def _reply_flex(event, alt: str, contents: dict):
+    line_bot.reply_message(event.reply_token, FlexSendMessage(alt_text=alt, contents=contents))
+
+
+# ── 健康檢查 ──────────────────────────────────────────────
+@app.route("/", methods=["GET"])
+def index():
+    return "保險發展小幫手 LINE Bot ✅"
+
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+    """相容舊 insurance-bot 的 webhook 路徑"""
+    if request.method == "GET":
+        return "OK", 200
+    return callback()
+
+
+# ── 啟動 ──────────────────────────────────────────────────
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
