@@ -178,9 +178,14 @@ def _parse_command(text: str) -> dict:
     
     # 測試早報（手動觸發）
     elif cmd == "早報":
-        from scheduler import run_daily
-        run_daily(get_db())
-        return _t("✅ 早報已發送，請查看訊息")
+        try:
+            from scheduler import _build_morning_report
+            report = _build_morning_report(get_db())
+            return _t(report)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return _t(f"❌ 早報錯誤：{e}")
     
     # 產險（手動觸發產險列表）
     elif cmd == "產險":
