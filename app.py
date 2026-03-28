@@ -329,11 +329,11 @@ def _parse_command(text: str) -> dict:
             traceback.print_exc()
             return _t(f"❌ 壽險查詢錯誤：{e}")
 
-    # 業務（列表，已結案不顯示）
-    elif cmd == "業務":
+    # 銷售（列表，已結案不顯示）
+    elif cmd == "銷售":
         records  = [r for r in get_db().get_biz_list() if r.get("階段") != "已結案"]
-        contents = build_biz_list_card(records, "💼 業務追蹤")
-        return _f("業務追蹤", contents)
+        contents = build_biz_list_card(records, "💼 銷售追蹤")
+        return _f("銷售追蹤", contents)
 
     # 增員（列表，已結案不顯示）
     elif cmd == "增員":
@@ -341,23 +341,23 @@ def _parse_command(text: str) -> dict:
         contents = build_biz_list_card(records, "👥 增員追蹤")
         return _f("增員追蹤", contents)
 
-    # 新增業務 <姓名> <電話> <階段>
-    elif cmd == "新增業務" and len(parts) >= 2:
+    # 新增準客戶 <姓名> <電話> <階段>
+    elif cmd == "新增準客戶" and len(parts) >= 2:
         name  = parts[1]
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_biz(name, phone, stage)
-        contents = build_biz_single_card(rid, name, phone, stage, "💼 業務追蹤")
-        return _f(f"已新增業務 {name}", contents)
+        contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
+        return _f(f"已新增準客戶 {name}", contents)
 
-    # 新增增員 <姓名> <電話> <階段>
-    elif cmd == "新增增員" and len(parts) >= 2:
+    # 新增準增員 <姓名> <電話> <階段>
+    elif cmd == "新增準增員" and len(parts) >= 2:
         name  = parts[1]
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
         contents = build_biz_single_card(rid, name, phone, stage, "👥 增員追蹤")
-        return _f(f"已新增增員 {name}", contents)
+        return _f(f"已新增準增員 {name}", contents)
 
     # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面
     elif cmd == "記錄" and len(parts) >= 2:
@@ -370,12 +370,12 @@ def _parse_command(text: str) -> dict:
         else:
             return _t(f"✏️ 請輸入備註內容：\n格式：記錄 {rid} [內容]\n例：記錄 {rid} 已約好下週三見面")
 
-    # 更新業務 <ID> <階段>  例：更新業務 B001 建議書
-    elif cmd == "更新業務" and len(parts) >= 3:
+    # 更新銷售 <ID> <階段>  例：更新銷售 B001 建議書
+    elif cmd == "更新銷售" and len(parts) >= 3:
         rid   = parts[1]
         stage = parts[2]
         ok    = get_db().update_biz_stage(rid, stage)
-        return _t(f"✅ 業務 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到業務 {rid}")
+        return _t(f"✅ 銷售 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到銷售 {rid}")
 
     # 更新增員 <ID> <階段>
     elif cmd == "更新增員" and len(parts) >= 3:
