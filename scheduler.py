@@ -60,12 +60,11 @@ def _build_morning_report(db) -> str:
         f"▪️ 已聯繫：{biz_counts.get('已聯繫', 0)} 組",
         f"▪️ 建議書：{biz_counts.get('建議書', 0)} 組",
         f"▪️ 約簽約：{biz_counts.get('約簽約', 0)} 組",
-        f"▪️ 送保單：{biz_counts.get('送保單', 0)} 組",
         "",
         "👥 增員區",
         f"▪️ 已聯繫：{recruit_counts.get('已聯繫', 0)} 組",
         f"▪️ 約聊聊：{recruit_counts.get('約聊聊', 0)} 組",
-        f"▪️ 約簽約：{recruit_counts.get('約簽約', 0)} 組",
+        f"▪️ 約報聘：{recruit_counts.get('約報聘', 0)} 組",
     ]
     return "\n".join(lines)
 

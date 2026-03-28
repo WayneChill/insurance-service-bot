@@ -1,6 +1,6 @@
 """
 flex_message.py ── 所有 LINE Flex Message 組裝函式
-更新：2026/03/28
+更新：2026/03/29
 """
 from urllib.parse import quote
 
@@ -65,14 +65,14 @@ def _single_bubble(client, search_name, cards=None):
                                "color": "#FFFFFF", "align": "center", "gravity": "center"}]},
                 {"type": "box", "layout": "vertical", "flex": 1,
                  "contents": [
-                     {"type": "text", "text": p["company"], "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                     {"type": "text", "text": p["policy_num"], "size": "xs", "color": "#888780", "wrap": True},
+                     {"type": "text", "text": p["company"], "size": "lg", "weight": "bold", "color": "#2C2C2A"},
+                     {"type": "text", "text": p["policy_num"], "size": "md", "color": "#888780", "wrap": True},
                  ]},
             ]
         })
 
     if not policy_rows:
-        policy_rows = [{"type": "text", "text": "尚無保單資料", "size": "sm", "color": "#888780"}]
+        policy_rows = [{"type": "text", "text": "尚無保單資料", "size": "lg", "color": "#888780"}]
 
     name_enc   = quote(search_name)
     policy_enc = quote(policies[0]["policy_num"]) if policies else ""
@@ -87,7 +87,7 @@ def _single_bubble(client, search_name, cards=None):
     card_rows = []
     if cards:
         card_rows.append({"type": "separator", "margin": "sm"})
-        card_rows.append({"type": "text", "text": "💳 信用卡", "size": "sm", "weight": "bold",
+        card_rows.append({"type": "text", "text": "💳 信用卡", "size": "lg", "weight": "bold",
                           "color": "#0F6E56", "margin": "sm"})
         for cd in cards:
             bank  = str(cd.get("銀行名", "")).strip()
@@ -96,12 +96,12 @@ def _single_bubble(client, search_name, cards=None):
             note  = str(cd.get("備註保單", "")).strip()
             label = f"{bank} {num}  {exp}"
             label += f"  → {note}" if note else "  （所有保單）"
-            card_rows.append({"type": "text", "text": label, "size": "xs", "color": "#5F5E5A", "wrap": True})
+            card_rows.append({"type": "text", "text": label, "size": "md", "color": "#5F5E5A", "wrap": True})
 
     body_contents = info_rows + [
         {"type": "separator", "margin": "sm"},
         {"type": "text", "text": f"保單（{len(policies)} 張）",
-         "size": "sm", "weight": "bold", "color": "#0F6E56", "margin": "sm"},
+         "size": "lg", "weight": "bold", "color": "#0F6E56", "margin": "sm"},
     ] + policy_rows + card_rows
 
     return {
@@ -109,9 +109,9 @@ def _single_bubble(client, search_name, cards=None):
         "header": {
             "type": "box", "layout": "vertical", "paddingAll": "16px",
             "contents": [
-                {"type": "text", "text": name, "weight": "bold", "size": "xl",
+                {"type": "text", "text": name, "weight": "bold", "size": "3xl",
                  "color": "#2C2C2A", "align": "center"},
-                {"type": "text", "text": client.get("idno", "") or "-", "size": "xs",
+                {"type": "text", "text": client.get("idno", "") or "-", "size": "md",
                  "color": "#888780", "margin": "xs", "align": "center"},
             ]
         },
@@ -119,7 +119,7 @@ def _single_bubble(client, search_name, cards=None):
         "footer": {
             "type": "box", "layout": "vertical", "spacing": "sm",
             "contents": [
-                {"type": "text", "text": "開立保服案件", "size": "xs", "color": "#888780", "align": "center"},
+                {"type": "text", "text": "開立保服案件", "size": "md", "color": "#888780", "align": "center"},
                 {"type": "box", "layout": "horizontal", "spacing": "sm",
                  "contents": [
                      _postback_btn("理賠", f"action=理賠&name={name_enc}&policy={policy_enc}", "#FF6B6B"),
@@ -142,16 +142,16 @@ def build_cases_card(name, cases):
     done    = [c for c in cases if c.get("狀態", "") == "已完成"]
     all_c   = pending + done
     items   = [_case_item(c, name) for c in all_c] if all_c else [
-        {"type": "text", "text": "目前沒有保服案件", "size": "sm", "color": "#888780"}
+        {"type": "text", "text": "目前沒有保服案件", "size": "lg", "color": "#888780"}
     ]
     return {
         "type": "bubble", "size": "kilo",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "保服進度", "weight": "bold", "size": "xl", "color": "#0F6E56"},
+                {"type": "text", "text": "保服進度", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
                 {"type": "text", "text": f"{name} · 待處理 {len(pending)} 件",
-                 "size": "sm", "color": "#0F6E56"},
+                 "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -171,8 +171,8 @@ def build_case_created_card(case_id: str, name: str, service: str, policy: str =
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "xl", "color": "#0F6E56"},
-                {"type": "text", "text": f"{name} · {service}", "size": "sm", "color": "#0F6E56"},
+                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
+                {"type": "text", "text": f"{name} · {service}", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm",
@@ -201,14 +201,14 @@ def _case_item(c, name):
                  {"type": "box", "layout": "vertical", "flex": 1,
                   "contents": [
                       {"type": "text", "text": f"{client_n} · {service}",
-                       "size": "lg", "weight": "bold", "color": "#2C2C2A", "wrap": True},
+                       "size": "xxl", "weight": "bold", "color": "#2C2C2A", "wrap": True},
                       {"type": "text", "text": f"# {case_id}",
-                       "size": "sm", "color": "#B4B2A9"},
+                       "size": "lg", "color": "#B4B2A9"},
                   ]},
                  {"type": "text", "text": f"{emoji} {status}",
-                  "size": "md", "color": color, "align": "end", "flex": 0, "gravity": "center"},
+                  "size": "xl", "color": color, "align": "end", "flex": 0, "gravity": "center"},
              ]},
-            {"type": "text", "text": f"建立：{created}", "size": "sm", "color": "#B4B2A9"},
+            {"type": "text", "text": f"建立：{created}", "size": "lg", "color": "#B4B2A9"},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
              "contents": [
                  {"type": "box", "layout": "horizontal", "spacing": "xs",
@@ -237,7 +237,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
     prefix     = "更新增員" if is_recruit else "更新業務"
 
     if not records:
-        items = [{"type": "text", "text": "目前沒有記錄", "size": "sm", "color": "#888780"}]
+        items = [{"type": "text", "text": "目前沒有記錄", "size": "lg", "color": "#888780"}]
     else:
         items = []
         for r in records[:10]:
@@ -269,13 +269,13 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                  "contents": [
                      {"type": "box", "layout": "vertical", "flex": 3,
                       "contents": [
-                          {"type": "text", "text": name, "size": "lg", "weight": "bold", "color": "#2C2C2A"},
-                          {"type": "text", "text": phone, "size": "md", "color": "#888780"},
+                          {"type": "text", "text": name, "size": "xxl", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone, "size": "xl", "color": "#888780"},
                       ]},
                      {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
                       "contents": [
-                          {"type": "text", "text": rid, "size": "sm", "color": "#B4B2A9", "align": "end"},
-                          {"type": "text", "text": stage, "size": "md", "color": "#0F6E56",
+                          {"type": "text", "text": rid, "size": "lg", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "xl", "color": "#0F6E56",
                            "align": "end", "weight": "bold"},
                       ]},
                  ]},
@@ -283,7 +283,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
             if note:
                 card_contents.append({
                     "type": "text", "text": f"📝 {note}",
-                    "size": "sm", "color": "#5F5E5A", "wrap": True, "margin": "xs"
+                    "size": "lg", "color": "#5F5E5A", "wrap": True, "margin": "xs"
                 })
             card_contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
@@ -307,8 +307,8 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": title, "weight": "bold", "size": "xl", "color": "#0F6E56"},
-                {"type": "text", "text": f"共 {len(records)} 筆", "size": "sm", "color": "#0F6E56"},
+                {"type": "text", "text": title, "weight": "bold", "size": "3xl", "color": "#0F6E56"},
+                {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -340,8 +340,8 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "xl", "color": "#0F6E56"},
-                {"type": "text", "text": title, "size": "sm", "color": "#0F6E56"},
+                {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
+                {"type": "text", "text": title, "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {
@@ -351,13 +351,13 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
                  "contents": [
                      {"type": "box", "layout": "vertical", "flex": 3,
                       "contents": [
-                          {"type": "text", "text": name, "size": "lg", "weight": "bold", "color": "#2C2C2A"},
-                          {"type": "text", "text": phone_str, "size": "md", "color": "#888780"},
+                          {"type": "text", "text": name, "size": "xxl", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone_str, "size": "xl", "color": "#888780"},
                       ]},
                      {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
                       "contents": [
-                          {"type": "text", "text": rid, "size": "sm", "color": "#B4B2A9", "align": "end"},
-                          {"type": "text", "text": stage, "size": "md", "color": "#0F6E56",
+                          {"type": "text", "text": rid, "size": "lg", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "xl", "color": "#0F6E56",
                            "align": "end", "weight": "bold"},
                       ]},
                  ]},
@@ -392,7 +392,7 @@ def build_life_detail_card(detail: dict) -> dict:
 
     if birthdays:
         contents.append({"type": "text", "text": "🎂 當日壽星",
-                         "weight": "bold", "size": "md", "color": "#0F6E56"})
+                         "weight": "bold", "size": "xl", "color": "#0F6E56"})
         for b in birthdays:
             contents.append({
                 "type": "box", "layout": "horizontal", "spacing": "sm",
@@ -401,11 +401,11 @@ def build_life_detail_card(detail: dict) -> dict:
                 "contents": [
                     {"type": "box", "layout": "vertical", "flex": 3,
                      "contents": [
-                         {"type": "text", "text": b["name"], "size": "lg",
+                         {"type": "text", "text": b["name"], "size": "xxl",
                           "weight": "bold", "color": "#2C2C2A"},
-                         {"type": "text", "text": b["dob"], "size": "sm", "color": "#888780"},
+                         {"type": "text", "text": b["dob"], "size": "lg", "color": "#888780"},
                      ]},
-                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "md",
+                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "xl",
                      "color": "#0F6E56", "align": "end", "flex": 2, "gravity": "center"},
                 ]
             })
@@ -414,7 +414,7 @@ def build_life_detail_card(detail: dict) -> dict:
         if contents:
             contents.append({"type": "separator", "margin": "md"})
         contents.append({"type": "text", "text": "📋 保單周年",
-                         "weight": "bold", "size": "md", "color": "#0F6E56", "margin": "md"})
+                         "weight": "bold", "size": "xl", "color": "#0F6E56", "margin": "md"})
         for a in anniversaries:
             contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs",
@@ -423,21 +423,21 @@ def build_life_detail_card(detail: dict) -> dict:
                 "contents": [
                     {"type": "box", "layout": "horizontal",
                      "contents": [
-                         {"type": "text", "text": a["name"], "size": "lg",
+                         {"type": "text", "text": a["name"], "size": "xxl",
                           "weight": "bold", "color": "#2C2C2A", "flex": 3},
                          {"type": "text", "text": f"第{a['years']}年",
-                          "size": "md", "color": "#FF6B6B", "align": "end", "flex": 1},
+                          "size": "xl", "color": "#FF6B6B", "align": "end", "flex": 1},
                      ]},
                     {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
-                     "size": "sm", "color": "#888780"},
+                     "size": "lg", "color": "#888780"},
                     {"type": "text", "text": str(a.get("tel", "") or "").strip() or "-",
-                     "size": "sm", "color": "#0F6E56"},
+                     "size": "lg", "color": "#0F6E56"},
                 ]
             })
 
     if not contents:
         contents = [{"type": "text", "text": "今日無壽星或保單周年",
-                     "size": "md", "color": "#888780"}]
+                     "size": "xl", "color": "#888780"}]
 
     return {
         "type": "bubble", "size": "kilo",
@@ -445,9 +445,9 @@ def build_life_detail_card(detail: dict) -> dict:
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "text", "text": "壽險提醒", "weight": "bold",
-                 "size": "xl", "color": "#0F6E56"},
+                 "size": "3xl", "color": "#0F6E56"},
                 {"type": "text", "text": f"壽星 {len(birthdays)} 位・周年 {len(anniversaries)} 組",
-                 "size": "sm", "color": "#0F6E56"},
+                 "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents}
@@ -476,26 +476,27 @@ def build_property_card(row, current_status=None) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": color,
             "contents": [
-                {"type": "text", "text": f"倒數 {days} 天", "color": "#FFFFFF", "size": "xl", "weight": "bold"},
-                {"type": "text", "text": label, "color": "#FFFFFF", "size": "sm"},
+                {"type": "text", "text": f"倒數 {days} 天", "color": "#FFFFFF", "size": "3xl", "weight": "bold"},
+                {"type": "text", "text": label, "color": "#FFFFFF", "size": "lg"},
             ]
         },
         "body": {
             "type": "box", "layout": "vertical", "spacing": "sm",
             "contents": [
-                {"type": "text", "text": name, "weight": "bold", "size": "xl"},
+                {"type": "text", "text": name, "weight": "bold", "size": "3xl"},
                 {"type": "separator"},
                 {"type": "box", "layout": "vertical", "spacing": "xs", "contents": [
-                    {"type": "text", "text": f"保單號碼：{policy_id}", "size": "md", "color": "#555555"},
-                    {"type": "text", "text": f"保險公司：{row['公司名稱']}", "size": "md", "color": "#555555"},
-                    {"type": "text", "text": f"險種：{row['險別名稱']}", "size": "md", "color": "#555555"},
-                    {"type": "text", "text": f"電話：{row['行動電話']}", "size": "md", "color": "#555555"},
+                    {"type": "text", "text": "保單號碼：", "size": "xl", "color": "#555555"},
+                    {"type": "text", "text": policy_id, "size": "xl", "color": "#555555", "wrap": True},
+                    {"type": "text", "text": f"保險公司：{row['公司名稱']}", "size": "xl", "color": "#555555"},
+                    {"type": "text", "text": f"險種：{row['險別名稱']}", "size": "xl", "color": "#555555"},
+                    {"type": "text", "text": f"電話：{row['行動電話']}", "size": "xl", "color": "#555555"},
                     {"type": "text", "text": f"到期日：{row['到期日'].strftime('%Y/%m/%d')}",
-                     "size": "md", "color": "#FF4757", "weight": "bold"},
+                     "size": "xl", "color": "#FF4757", "weight": "bold"},
                     {"type": "text", "text": f"總保費：$ {int(row['總保費']):,} 元",
-                     "size": "md", "color": "#FF4757", "weight": "bold"},
+                     "size": "xl", "color": "#FF4757", "weight": "bold"},
                     {"type": "text", "text": f"{st_emoji} 狀態：{st_text}",
-                     "size": "md", "color": st_color, "weight": "bold"},
+                     "size": "xl", "color": st_color, "weight": "bold"},
                 ]},
             ]
         },
@@ -544,8 +545,8 @@ def build_help_message(pending_cases=None) -> dict:
             "paddingAll": "10px", "backgroundColor": "#F1EFE8",
             "cornerRadius": "6px", "margin": "sm",
             "contents": [
-                {"type": "text", "text": cmd,  "size": "sm", "weight": "bold", "color": "#0F6E56", "wrap": True},
-                {"type": "text", "text": desc, "size": "xs", "color": "#5F5E5A"},
+                {"type": "text", "text": cmd,  "size": "lg", "weight": "bold", "color": "#0F6E56", "wrap": True},
+                {"type": "text", "text": desc, "size": "md", "color": "#5F5E5A"},
             ]
         })
 
@@ -554,8 +555,8 @@ def build_help_message(pending_cases=None) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "保險發展小幫手", "weight": "bold", "size": "lg", "color": "#0F6E56"},
-                {"type": "text", "text": "指令說明", "size": "sm", "color": "#0F6E56"},
+                {"type": "text", "text": "保險發展小幫手", "weight": "bold", "size": "xxl", "color": "#0F6E56"},
+                {"type": "text", "text": "指令說明", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "contents": rows}
@@ -576,9 +577,9 @@ def _info_row(icon, label, value):
     return {
         "type": "box", "layout": "horizontal", "spacing": "sm",
         "contents": [
-            {"type": "text", "text": icon,    "size": "sm", "flex": 0},
-            {"type": "text", "text": label,   "size": "sm", "color": "#888780", "flex": 1},
-            {"type": "text", "text": display, "size": "sm", "color": "#2C2C2A",
+            {"type": "text", "text": icon,    "size": "lg", "flex": 0},
+            {"type": "text", "text": label,   "size": "lg", "color": "#888780", "flex": 1},
+            {"type": "text", "text": display, "size": "lg", "color": "#2C2C2A",
              "flex": 3, "align": "end", "wrap": True},
         ]
     }
