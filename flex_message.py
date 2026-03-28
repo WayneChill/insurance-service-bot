@@ -158,6 +158,28 @@ def build_cases_card(name, cases):
     }
 
 
+def build_case_created_card(case_id: str, name: str, service: str, policy: str = "") -> dict:
+    """開立保服案件後的確認卡片，含狀態更新按鈕"""
+    from datetime import datetime
+    c = {
+        "案件ID": case_id, "客戶姓名": name, "服務項目": service,
+        "保單號碼": policy, "狀態": "待處理",
+        "建立時間": datetime.now().strftime("%Y/%m/%d %H:%M"),
+    }
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
+            "contents": [
+                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "lg", "color": "#0F6E56"},
+                {"type": "text", "text": f"{name} · {service}", "size": "xs", "color": "#0F6E56"},
+            ]
+        },
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm",
+                 "contents": [_case_item(c, name)]}
+    }
+
+
 def _case_item(c, name):
     status   = c.get("狀態", "待處理")
     color    = STATUS_COLOR.get(status, "#888780")
@@ -177,11 +199,11 @@ def _case_item(c, name):
             {"type": "box", "layout": "horizontal",
              "contents": [
                  {"type": "text", "text": f"{case_id} · {client_n} · {service}",
-                  "size": "xs", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
+                  "size": "sm", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
                  {"type": "text", "text": f"{emoji} {status}",
-                  "size": "xs", "color": color, "align": "end", "flex": 0},
+                  "size": "sm", "color": color, "align": "end", "flex": 0},
              ]},
-            {"type": "text", "text": f"建立：{created}", "size": "xxs", "color": "#B4B2A9"},
+            {"type": "text", "text": f"建立：{created}", "size": "xs", "color": "#B4B2A9"},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
              "contents": [
                  {"type": "box", "layout": "horizontal", "spacing": "xs",
@@ -242,13 +264,13 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                  "contents": [
                      {"type": "box", "layout": "vertical", "flex": 3,
                       "contents": [
-                          {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                          {"type": "text", "text": phone, "size": "xxs", "color": "#888780"},
+                          {"type": "text", "text": name, "size": "md", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone, "size": "sm", "color": "#888780"},
                       ]},
                      {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
                       "contents": [
-                          {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
-                          {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
+                          {"type": "text", "text": rid, "size": "xs", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "sm", "color": "#0F6E56",
                            "align": "end", "weight": "bold"},
                       ]},
                  ]},
@@ -256,7 +278,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
             if note:
                 card_contents.append({
                     "type": "text", "text": f"📝 {note}",
-                    "size": "xxs", "color": "#5F5E5A", "wrap": True, "margin": "xs"
+                    "size": "xs", "color": "#5F5E5A", "wrap": True, "margin": "xs"
                 })
             card_contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",

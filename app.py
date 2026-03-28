@@ -38,7 +38,7 @@ for _k, _v in _cfg.items():
 from sheets import SheetsDB
 from excel_reader import search_client
 from flex_message import (
-    build_client_card, build_cases_card,
+    build_client_card, build_cases_card, build_case_created_card,
     build_biz_list_card, build_biz_single_card, build_help_message
 )
 from scheduler import start_scheduler
@@ -102,8 +102,9 @@ def handle_postback(event):
 
     # ── 保服案件開立（理賠/契變/保費變更）
     if action in ("理賠", "契變", "保費變更"):
-        case_id = get_db().add_case(name, action, policy)
-        _reply_text(event, f"✅ 已開立案件 #{case_id}\n客戶：{name}\n項目：{action}\n\n輸入「進度 {name}」查看進度")
+        case_id  = get_db().add_case(name, action, policy)
+        contents = build_case_created_card(case_id, name, action, policy)
+        _reply_flex(event, f"案件開立 {name}", contents)
 
     # ── 保服案件狀態更新
     elif action == "update":
