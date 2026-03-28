@@ -578,7 +578,7 @@ def _info_row(icon, label, value):
         "type": "box", "layout": "horizontal", "spacing": "sm",
         "contents": [
             {"type": "text", "text": icon,    "size": "lg", "flex": 0},
-            {"type": "text", "text": label,   "size": "lg", "color": "#888780", "flex": 1},
+            {"type": "text", "text": label,   "size": "lg", "color": "#888780", "flex": 2},
             {"type": "text", "text": display, "size": "lg", "color": "#2C2C2A",
              "flex": 3, "align": "end", "wrap": True},
         ]
