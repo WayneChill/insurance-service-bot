@@ -243,7 +243,7 @@ def _parse_command(text: str) -> dict:
                 lines.append("▪️ 無待處理")
 
             lines.append("")
-            lines.append(f"💼 業務待跟進（{len(biz)} 組）")
+            lines.append(f"💼 銷售待跟進（{len(biz)} 組）")
             for b in biz[:5]:
                 lines.append(f"▪️ {b.get('姓名','')} [{b.get('階段','')}]")
             if not biz:
