@@ -175,7 +175,13 @@ def _parse_command(text: str) -> dict:
         pending  = get_db().get_all_pending_cases()
         contents = build_help_message(pending)
         return _f("指令說明", contents)
-
+    
+    # 測試早報（手動觸發）
+    elif cmd == "早報":
+        from scheduler import _build_morning_report
+        report = _build_morning_report(get_db())
+        return _t(report)
+    
     # 產險（手動觸發產險列表）
     elif cmd == "產險":
         return _t("📊 產險資料請查看每日早報，或輸入「查詢 姓名」查詢個別客戶產險保單。")
