@@ -198,10 +198,15 @@ def _case_item(c, name):
         "contents": [
             {"type": "box", "layout": "horizontal",
              "contents": [
-                 {"type": "text", "text": f"{case_id} · {client_n} · {service}",
-                  "size": "md", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
+                 {"type": "box", "layout": "vertical", "flex": 1,
+                  "contents": [
+                      {"type": "text", "text": f"{client_n} · {service}",
+                       "size": "lg", "weight": "bold", "color": "#2C2C2A", "wrap": True},
+                      {"type": "text", "text": f"# {case_id}",
+                       "size": "sm", "color": "#B4B2A9"},
+                  ]},
                  {"type": "text", "text": f"{emoji} {status}",
-                  "size": "md", "color": color, "align": "end", "flex": 0},
+                  "size": "md", "color": color, "align": "end", "flex": 0, "gravity": "center"},
              ]},
             {"type": "text", "text": f"建立：{created}", "size": "sm", "color": "#B4B2A9"},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
@@ -387,7 +392,7 @@ def build_life_detail_card(detail: dict) -> dict:
 
     if birthdays:
         contents.append({"type": "text", "text": "🎂 當日壽星",
-                         "weight": "bold", "size": "sm", "color": "#0F6E56"})
+                         "weight": "bold", "size": "md", "color": "#0F6E56"})
         for b in birthdays:
             contents.append({
                 "type": "box", "layout": "horizontal", "spacing": "sm",
@@ -396,11 +401,11 @@ def build_life_detail_card(detail: dict) -> dict:
                 "contents": [
                     {"type": "box", "layout": "vertical", "flex": 3,
                      "contents": [
-                         {"type": "text", "text": b["name"], "size": "sm",
+                         {"type": "text", "text": b["name"], "size": "lg",
                           "weight": "bold", "color": "#2C2C2A"},
-                         {"type": "text", "text": b["dob"], "size": "xxs", "color": "#888780"},
+                         {"type": "text", "text": b["dob"], "size": "sm", "color": "#888780"},
                      ]},
-                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "xs",
+                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "md",
                      "color": "#0F6E56", "align": "end", "flex": 2, "gravity": "center"},
                 ]
             })
@@ -409,7 +414,7 @@ def build_life_detail_card(detail: dict) -> dict:
         if contents:
             contents.append({"type": "separator", "margin": "md"})
         contents.append({"type": "text", "text": "📋 保單周年",
-                         "weight": "bold", "size": "sm", "color": "#0F6E56", "margin": "md"})
+                         "weight": "bold", "size": "md", "color": "#0F6E56", "margin": "md"})
         for a in anniversaries:
             contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs",
@@ -418,21 +423,21 @@ def build_life_detail_card(detail: dict) -> dict:
                 "contents": [
                     {"type": "box", "layout": "horizontal",
                      "contents": [
-                         {"type": "text", "text": a["name"], "size": "sm",
+                         {"type": "text", "text": a["name"], "size": "lg",
                           "weight": "bold", "color": "#2C2C2A", "flex": 3},
                          {"type": "text", "text": f"第{a['years']}年",
-                          "size": "xs", "color": "#FF6B6B", "align": "end", "flex": 1},
+                          "size": "md", "color": "#FF6B6B", "align": "end", "flex": 1},
                      ]},
                     {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
-                     "size": "xxs", "color": "#888780"},
+                     "size": "sm", "color": "#888780"},
                     {"type": "text", "text": str(a.get("tel", "") or "").strip() or "-",
-                     "size": "xxs", "color": "#0F6E56"},
+                     "size": "sm", "color": "#0F6E56"},
                 ]
             })
 
     if not contents:
         contents = [{"type": "text", "text": "今日無壽星或保單周年",
-                     "size": "sm", "color": "#888780"}]
+                     "size": "md", "color": "#888780"}]
 
     return {
         "type": "bubble", "size": "kilo",
@@ -440,9 +445,9 @@ def build_life_detail_card(detail: dict) -> dict:
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "text", "text": "壽險提醒", "weight": "bold",
-                 "size": "lg", "color": "#0F6E56"},
+                 "size": "xl", "color": "#0F6E56"},
                 {"type": "text", "text": f"壽星 {len(birthdays)} 位・周年 {len(anniversaries)} 組",
-                 "size": "xs", "color": "#0F6E56"},
+                 "size": "sm", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents}
@@ -478,19 +483,19 @@ def build_property_card(row, current_status=None) -> dict:
         "body": {
             "type": "box", "layout": "vertical", "spacing": "sm",
             "contents": [
-                {"type": "text", "text": name, "weight": "bold", "size": "lg"},
+                {"type": "text", "text": name, "weight": "bold", "size": "xl"},
                 {"type": "separator"},
                 {"type": "box", "layout": "vertical", "spacing": "xs", "contents": [
-                    {"type": "text", "text": f"保單號碼：{policy_id}", "size": "sm", "color": "#555555"},
-                    {"type": "text", "text": f"保險公司：{row['公司名稱']}", "size": "sm", "color": "#555555"},
-                    {"type": "text", "text": f"險種：{row['險別名稱']}", "size": "sm", "color": "#555555"},
-                    {"type": "text", "text": f"電話：{row['行動電話']}", "size": "sm", "color": "#555555"},
+                    {"type": "text", "text": f"保單號碼：{policy_id}", "size": "md", "color": "#555555"},
+                    {"type": "text", "text": f"保險公司：{row['公司名稱']}", "size": "md", "color": "#555555"},
+                    {"type": "text", "text": f"險種：{row['險別名稱']}", "size": "md", "color": "#555555"},
+                    {"type": "text", "text": f"電話：{row['行動電話']}", "size": "md", "color": "#555555"},
                     {"type": "text", "text": f"到期日：{row['到期日'].strftime('%Y/%m/%d')}",
-                     "size": "sm", "color": "#FF4757", "weight": "bold"},
+                     "size": "md", "color": "#FF4757", "weight": "bold"},
                     {"type": "text", "text": f"總保費：$ {int(row['總保費']):,} 元",
-                     "size": "sm", "color": "#FF4757", "weight": "bold"},
+                     "size": "md", "color": "#FF4757", "weight": "bold"},
                     {"type": "text", "text": f"{st_emoji} 狀態：{st_text}",
-                     "size": "sm", "color": st_color, "weight": "bold"},
+                     "size": "md", "color": st_color, "weight": "bold"},
                 ]},
             ]
         },
@@ -499,15 +504,15 @@ def build_property_card(row, current_status=None) -> dict:
             "contents": [
                 {"type": "box", "layout": "horizontal", "spacing": "sm",
                  "contents": [
-                     _postback_btn("📋 報價",  pb("quoted"),  "#3B82F6"),
-                     _postback_btn("⏰ 延3天", pb("delay"),   "#F59E0B"),
+                     _postback_btn("📋 報價",  pb("quoted"),  "#54A0FF"),
+                     _postback_btn("⏰ 延3天", pb("delay"),   "#FFD43B"),
                  ]},
                 {"type": "box", "layout": "horizontal", "spacing": "sm",
                  "contents": [
-                     _postback_btn("🔄 延7天", pb("delay7"),  "#F59E0B"),
-                     _postback_btn("❌ 不續保", pb("cancel"), "#6B7280"),
+                     _postback_btn("🔄 延7天", pb("delay7"),  "#FF922B"),
+                     _postback_btn("❌ 不續保", pb("cancel"), "#FF6B6B"),
                  ]},
-                _postback_btn("✅ 續保完成", pb("done"), "#10B981"),
+                _postback_btn("✅ 續保完成", pb("done"), "#20C997"),
             ]
         }
     }
