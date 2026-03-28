@@ -39,7 +39,7 @@ from sheets import SheetsDB
 from excel_reader import search_client
 from flex_message import (
     build_client_card, build_cases_card,
-    build_biz_list_card, build_help_message
+    build_biz_list_card, build_biz_single_card, build_help_message
 )
 from scheduler import start_scheduler
 
@@ -328,15 +328,15 @@ def _parse_command(text: str) -> dict:
             traceback.print_exc()
             return _t(f"❌ 壽險查詢錯誤：{e}")
 
-    # 業務（列表）
+    # 業務（列表，已結案不顯示）
     elif cmd == "業務":
-        records  = get_db().get_biz_list()
+        records  = [r for r in get_db().get_biz_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "💼 業務追蹤")
         return _f("業務追蹤", contents)
 
-    # 增員（列表）
+    # 增員（列表，已結案不顯示）
     elif cmd == "增員":
-        records  = get_db().get_recruit_list()
+        records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "👥 增員追蹤")
         return _f("增員追蹤", contents)
 
@@ -346,7 +346,8 @@ def _parse_command(text: str) -> dict:
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_biz(name, phone, stage)
-        return _t(f"✅ 已新增業務追蹤 #{rid}\n姓名：{name}\n電話：{phone}\n階段：{stage}")
+        contents = build_biz_single_card(rid, name, phone, stage, "💼 業務追蹤")
+        return _f(f"已新增業務 {name}", contents)
 
     # 新增增員 <姓名> <電話> <階段>
     elif cmd == "新增增員" and len(parts) >= 2:
@@ -354,7 +355,8 @@ def _parse_command(text: str) -> dict:
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
-        return _t(f"✅ 已新增增員追蹤 #{rid}\n姓名：{name}\n電話：{phone}\n階段：{stage}")
+        contents = build_biz_single_card(rid, name, phone, stage, "👥 增員追蹤")
+        return _f(f"已新增增員 {name}", contents)
 
     # 更新業務 <ID> <階段>  例：更新業務 B001 建議書
     elif cmd == "更新業務" and len(parts) >= 3:

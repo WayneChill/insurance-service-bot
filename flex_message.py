@@ -29,8 +29,8 @@ PROP_STATUS_COLOR = {"已報價": "#3B82F6", "延後3天": "#F59E0B", "延後7�
 TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
 # 業務 / 增員階段按鈕
-BIZ_STAGES_DEF     = [("已聯繫", "#888780"), ("建議書", "#4DABF7"), ("約簽約", "#FF922B"), ("不投保", "#6B7280"), ("已結案", "#20C997")]
-RECRUIT_STAGES_DEF = [("已聯繫", "#888780"), ("約聊聊", "#4DABF7"), ("約登入", "#FF922B"), ("已結案", "#20C997")]
+BIZ_STAGES_DEF     = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#FF9F43"), ("不投保", "#EE5A24"), ("已結案", "#1DD1A1")]
+RECRUIT_STAGES_DEF = [("已聯繫", "#54A0FF"), ("約聊聊", "#00D2D3"), ("約報聘", "#FF9F43"), ("約登入", "#5F27CD"), ("已結案", "#1DD1A1")]
 
 
 # ══════════════════════════════════════════════════════════
@@ -270,6 +270,59 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
+    }
+
+
+def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: str = "業務追蹤") -> dict:
+    """新增業務/增員後的確認卡片，含階段更新按鈕"""
+    is_recruit = "增員" in title
+    stages_def = RECRUIT_STAGES_DEF if is_recruit else BIZ_STAGES_DEF
+    prefix     = "更新增員" if is_recruit else "更新業務"
+    phone_str  = str(phone).strip() or "-"
+
+    btn_rows = []
+    for i in range(0, len(stages_def), 2):
+        pair = stages_def[i:i+2]
+        btn_rows.append({
+            "type": "box", "layout": "horizontal", "spacing": "xs",
+            "contents": [
+                {"type": "button",
+                 "action": {"type": "message", "label": s, "text": f"{prefix} {rid} {s}"},
+                 "style": "primary", "color": c, "height": "sm", "flex": 1}
+                for s, c in pair
+            ]
+        })
+
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
+            "contents": [
+                {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "lg", "color": "#0F6E56"},
+                {"type": "text", "text": title, "size": "xs", "color": "#0F6E56"},
+            ]
+        },
+        "body": {
+            "type": "box", "layout": "vertical", "spacing": "sm",
+            "contents": [
+                {"type": "box", "layout": "horizontal",
+                 "contents": [
+                     {"type": "box", "layout": "vertical", "flex": 3,
+                      "contents": [
+                          {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone_str, "size": "xxs", "color": "#888780"},
+                      ]},
+                     {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
+                      "contents": [
+                          {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
+                           "align": "end", "weight": "bold"},
+                      ]},
+                 ]},
+                {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
+                 "contents": btn_rows},
+            ]
+        }
     }
 
 
