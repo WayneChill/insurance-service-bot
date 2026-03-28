@@ -149,9 +149,9 @@ def build_cases_card(name, cases):
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "保服進度", "weight": "bold", "size": "lg", "color": "#0F6E56"},
+                {"type": "text", "text": "保服進度", "weight": "bold", "size": "xl", "color": "#0F6E56"},
                 {"type": "text", "text": f"{name} · 待處理 {len(pending)} 件",
-                 "size": "xs", "color": "#0F6E56"},
+                 "size": "sm", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -171,8 +171,8 @@ def build_case_created_card(case_id: str, name: str, service: str, policy: str =
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "lg", "color": "#0F6E56"},
-                {"type": "text", "text": f"{name} · {service}", "size": "xs", "color": "#0F6E56"},
+                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "xl", "color": "#0F6E56"},
+                {"type": "text", "text": f"{name} · {service}", "size": "sm", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm",
@@ -199,11 +199,11 @@ def _case_item(c, name):
             {"type": "box", "layout": "horizontal",
              "contents": [
                  {"type": "text", "text": f"{case_id} · {client_n} · {service}",
-                  "size": "sm", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
+                  "size": "md", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
                  {"type": "text", "text": f"{emoji} {status}",
-                  "size": "sm", "color": color, "align": "end", "flex": 0},
+                  "size": "md", "color": color, "align": "end", "flex": 0},
              ]},
-            {"type": "text", "text": f"建立：{created}", "size": "xs", "color": "#B4B2A9"},
+            {"type": "text", "text": f"建立：{created}", "size": "sm", "color": "#B4B2A9"},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
              "contents": [
                  {"type": "box", "layout": "horizontal", "spacing": "xs",
@@ -264,13 +264,13 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                  "contents": [
                      {"type": "box", "layout": "vertical", "flex": 3,
                       "contents": [
-                          {"type": "text", "text": name, "size": "md", "weight": "bold", "color": "#2C2C2A"},
-                          {"type": "text", "text": phone, "size": "sm", "color": "#888780"},
+                          {"type": "text", "text": name, "size": "lg", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone, "size": "md", "color": "#888780"},
                       ]},
                      {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
                       "contents": [
-                          {"type": "text", "text": rid, "size": "xs", "color": "#B4B2A9", "align": "end"},
-                          {"type": "text", "text": stage, "size": "sm", "color": "#0F6E56",
+                          {"type": "text", "text": rid, "size": "sm", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "md", "color": "#0F6E56",
                            "align": "end", "weight": "bold"},
                       ]},
                  ]},
@@ -278,7 +278,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
             if note:
                 card_contents.append({
                     "type": "text", "text": f"📝 {note}",
-                    "size": "xs", "color": "#5F5E5A", "wrap": True, "margin": "xs"
+                    "size": "sm", "color": "#5F5E5A", "wrap": True, "margin": "xs"
                 })
             card_contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
@@ -302,8 +302,8 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": title, "weight": "bold", "size": "lg", "color": "#0F6E56"},
-                {"type": "text", "text": f"共 {len(records)} 筆", "size": "xs", "color": "#0F6E56"},
+                {"type": "text", "text": title, "weight": "bold", "size": "xl", "color": "#0F6E56"},
+                {"type": "text", "text": f"共 {len(records)} 筆", "size": "sm", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -335,8 +335,8 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "lg", "color": "#0F6E56"},
-                {"type": "text", "text": title, "size": "xs", "color": "#0F6E56"},
+                {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "xl", "color": "#0F6E56"},
+                {"type": "text", "text": title, "size": "sm", "color": "#0F6E56"},
             ]
         },
         "body": {
@@ -346,13 +346,13 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
                  "contents": [
                      {"type": "box", "layout": "vertical", "flex": 3,
                       "contents": [
-                          {"type": "text", "text": name, "size": "sm", "weight": "bold", "color": "#2C2C2A"},
-                          {"type": "text", "text": phone_str, "size": "xxs", "color": "#888780"},
+                          {"type": "text", "text": name, "size": "lg", "weight": "bold", "color": "#2C2C2A"},
+                          {"type": "text", "text": phone_str, "size": "md", "color": "#888780"},
                       ]},
                      {"type": "box", "layout": "vertical", "flex": 2, "gravity": "center",
                       "contents": [
-                          {"type": "text", "text": rid, "size": "xxs", "color": "#B4B2A9", "align": "end"},
-                          {"type": "text", "text": stage, "size": "xs", "color": "#0F6E56",
+                          {"type": "text", "text": rid, "size": "sm", "color": "#B4B2A9", "align": "end"},
+                          {"type": "text", "text": stage, "size": "md", "color": "#0F6E56",
                            "align": "end", "weight": "bold"},
                       ]},
                  ]},
@@ -544,17 +544,6 @@ def build_help_message(pending_cases=None) -> dict:
             ]
         })
 
-    pending_section = []
-    if pending_cases:
-        pending_section.append({"type": "separator", "margin": "md"})
-        pending_section.append({
-            "type": "text",
-            "text": f"待處理案件（{len(pending_cases)} 件）",
-            "size": "sm", "weight": "bold", "color": "#FF6B6B", "margin": "md"
-        })
-        for c in pending_cases[:5]:
-            pending_section.append(_case_item(c, c.get("客戶姓名", "")))
-
     return {
         "type": "bubble", "size": "kilo",
         "header": {
@@ -564,7 +553,7 @@ def build_help_message(pending_cases=None) -> dict:
                 {"type": "text", "text": "指令說明", "size": "sm", "color": "#0F6E56"},
             ]
         },
-        "body": {"type": "box", "layout": "vertical", "contents": rows + pending_section}
+        "body": {"type": "box", "layout": "vertical", "contents": rows}
     }
 
 
