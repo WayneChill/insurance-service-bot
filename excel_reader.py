@@ -132,10 +132,14 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
             continue
         if key not in results:
             idno_raw = safe_get(row, 23)
+            dob_raw  = safe_get(row, 22)
+            dob_date = roc_to_ad(dob_raw)
+            dob_str  = f"{dob_date.year}/{dob_date.month:02d}/{dob_date.day:02d}" if dob_date else ""
             results[key] = {
                 "name": key,
                 "applicant": applicant if applicant != key else "",
                 "idno": idno_raw[:10] if len(idno_raw) >= 10 else idno_raw,
+                "dob": dob_str,
                 "tel": safe_get(row, 34),
                 "addr": safe_get(row, 36),
                 "policies": [],

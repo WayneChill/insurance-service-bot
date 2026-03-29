@@ -105,16 +105,23 @@ def _single_bubble(client, search_name, cards=None):
          "size": "lg", "weight": "bold", "color": "#0F6E56", "margin": "sm"},
     ] + policy_rows + card_rows
 
+    header_contents = [
+        {"type": "text", "text": name, "weight": "bold", "size": "3xl",
+         "color": "#2C2C2A", "align": "center"},
+        {"type": "text", "text": client.get("idno", "") or "-", "size": "md",
+         "color": "#888780", "margin": "xs", "align": "center"},
+    ]
+    if client.get("dob"):
+        header_contents.append({
+            "type": "text", "text": f"🎂 {client['dob']}",
+            "size": "md", "color": "#888780", "align": "center",
+        })
+
     return {
         "type": "bubble", "size": "kilo",
         "header": {
             "type": "box", "layout": "vertical", "paddingAll": "16px",
-            "contents": [
-                {"type": "text", "text": name, "weight": "bold", "size": "3xl",
-                 "color": "#2C2C2A", "align": "center"},
-                {"type": "text", "text": client.get("idno", "") or "-", "size": "md",
-                 "color": "#888780", "margin": "xs", "align": "center"},
-            ]
+            "contents": header_contents,
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body_contents},
         "footer": {
