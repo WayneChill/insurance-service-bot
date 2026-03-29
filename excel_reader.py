@@ -143,6 +143,7 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
                     if dob_date:
                         dob_str = f"{dob_date.year}/{dob_date.month:02d}/{dob_date.day:02d}"
             print(f"[DOB] key={key!r} raw={dob_raw_val!r} result={dob_str!r}", flush=True)
+            print(f"[DOB_COLS] {[(i, row[i]) for i in range(18, min(35, len(row))) if row[i] is not None]}", flush=True)
             results[key] = {
                 "name": key,
                 "applicant": applicant if applicant != key else "",
