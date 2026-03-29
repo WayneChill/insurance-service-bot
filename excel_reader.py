@@ -131,10 +131,18 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
         if not policy_num:
             continue
         if key not in results:
-            idno_raw = safe_get(row, 23)
-            dob_raw  = safe_get(row, 22)
-            dob_date = roc_to_ad(dob_raw)
-            dob_str  = f"{dob_date.year}/{dob_date.month:02d}/{dob_date.day:02d}" if dob_date else ""
+            idno_raw    = safe_get(row, 23)
+            dob_raw_val = row[22] if len(row) > 22 else None
+            dob_str     = ""
+            if dob_raw_val is not None:
+                import datetime as _dt
+                if isinstance(dob_raw_val, (_dt.date, _dt.datetime)):
+                    dob_str = f"{dob_raw_val.year}/{dob_raw_val.month:02d}/{dob_raw_val.day:02d}"
+                else:
+                    dob_date = roc_to_ad(dob_raw_val)
+                    if dob_date:
+                        dob_str = f"{dob_date.year}/{dob_date.month:02d}/{dob_date.day:02d}"
+            print(f"[DOB] key={key!r} raw={dob_raw_val!r} result={dob_str!r}", flush=True)
             results[key] = {
                 "name": key,
                 "applicant": applicant if applicant != key else "",
