@@ -240,9 +240,9 @@ def _case_item(c, name):
 
 def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
     """顯示業務/增員列表，每筆含階段更新按鈕"""
-    is_recruit = "增員" in title
+    is_recruit = "增員" in title or "準增" in title
     stages_def = RECRUIT_STAGES_DEF if is_recruit else BIZ_STAGES_DEF
-    prefix     = "更新增員" if is_recruit else "更新銷售"
+    prefix     = "更新準增" if is_recruit else "更新銷售"
 
     if not records:
         items = [{"type": "text", "text": "目前沒有記錄", "size": "lg", "color": "#888780"}]
@@ -325,9 +325,9 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
 
 def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: str = "銷售追蹤") -> dict:
     """新增準客戶/準增員後的確認卡片，含階段更新按鈕"""
-    is_recruit = "增員" in title
+    is_recruit = "增員" in title or "準增" in title
     stages_def = RECRUIT_STAGES_DEF if is_recruit else BIZ_STAGES_DEF
-    prefix     = "更新增員" if is_recruit else "更新銷售"
+    prefix     = "更新準增" if is_recruit else "更新銷售"
     phone_str  = str(phone).strip() or "-"
 
     btn_rows = []
@@ -536,7 +536,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("查詢 王小明",       "查看客戶資料和保單"),
         ("進度 王小明",       "查看保服案件進度"),
         ("早報",              "手動觸發今日早報"),
-        ("待辦",              "顯示所有待處理案件"),
+        ("待辦",              "顯示所有待辦彙整"),
         ("產險",              "查看產險到期名單"),
         ("壽險",              "查看當日壽星/保單周年"),
         ("銷售",              "查看銷售追蹤列表"),
@@ -546,6 +546,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("新增卡片 姓名 銀行 卡號前4碼 效期", "新增信用卡"),
         ("刪除卡片 姓名 銀行 卡號前4碼", "刪除信用卡"),
         ("指令",              "顯示此說明"),
+        ("使用說明",          "開啟完整使用說明網頁"),
     ]
     rows = []
     for cmd, desc in commands:

@@ -354,8 +354,8 @@ def _parse_command(text: str) -> dict:
     # 準增（列表，已結案不顯示）
     elif cmd == "準增":
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
-        contents = build_biz_list_card(records, "👥 增員追蹤")
-        return _f("增員追蹤", contents)
+        contents = build_biz_list_card(records, "👥 準增追蹤")
+        return _f("準增追蹤", contents)
 
     # 新增銷售 <姓名> <電話> <階段>
     elif cmd == "新增銷售" and len(parts) >= 2:
@@ -372,7 +372,7 @@ def _parse_command(text: str) -> dict:
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
-        contents = build_biz_single_card(rid, name, phone, stage, "👥 增員追蹤")
+        contents = build_biz_single_card(rid, name, phone, stage, "👥 準增追蹤")
         return _f(f"已新增準增 {name}", contents)
 
     # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面
