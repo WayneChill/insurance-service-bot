@@ -351,8 +351,8 @@ def _parse_command(text: str) -> dict:
         contents = build_biz_list_card(records, "💼 銷售追蹤")
         return _f("銷售追蹤", contents)
 
-    # 準增（列表，已結案不顯示）
-    elif cmd == "準增":
+    # 增員（列表，已結案不顯示）
+    elif cmd == "增員":
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "👥 準增追蹤")
         return _f("準增追蹤", contents)
