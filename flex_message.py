@@ -208,7 +208,7 @@ def _case_item(c, name):
                  {"type": "text", "text": f"{emoji} {status}",
                   "size": "xl", "color": color, "align": "end", "flex": 0, "gravity": "center"},
              ]},
-            {"type": "text", "text": f"建立：{created}", "size": "lg", "color": "#B4B2A9"},
+            {"type": "text", "text": f"建立：{created}", "size": "lg", "color": "#B4B2A9", "wrap": True},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
              "contents": [
                  {"type": "box", "layout": "horizontal", "spacing": "xs",
@@ -426,7 +426,7 @@ def build_life_detail_card(detail: dict) -> dict:
                          {"type": "text", "text": a["name"], "size": "xxl",
                           "weight": "bold", "color": "#2C2C2A", "flex": 3},
                          {"type": "text", "text": f"第{a['years']}年",
-                          "size": "xl", "color": "#FF6B6B", "align": "end", "flex": 1},
+                          "size": "xl", "color": "#FF6B6B", "align": "end", "flex": 2},
                      ]},
                     {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
                      "size": "lg", "color": "#888780"},

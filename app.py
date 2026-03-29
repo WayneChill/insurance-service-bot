@@ -47,7 +47,7 @@ app      = Flask(__name__)
 line_bot = LineBotApi(os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
 handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
-# ── Lazy DB（第一次收到請求才連線，避免啟動卡死）──────────
+# ── DB（啟動時背景初始化，確保排程器能準時執行）─────────
 _db = None
 
 def get_db():
@@ -58,6 +58,18 @@ def get_db():
         print("[DB] 完成，啟動排程", flush=True)
         start_scheduler(_db)
     return _db
+
+def _startup_init():
+    import threading
+    def _init():
+        try:
+            get_db()
+            print("[DB] 啟動時初始化完成，排程器已啟動", flush=True)
+        except Exception as e:
+            print(f"[DB] 啟動時初始化失敗，將於收到訊息時重試: {e}", flush=True)
+    threading.Thread(target=_init, daemon=True).start()
+
+_startup_init()
 
 # ── Webhook ───────────────────────────────────────────────
 @app.route("/callback", methods=["POST"])
