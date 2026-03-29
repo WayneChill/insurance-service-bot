@@ -132,7 +132,7 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
             continue
         if key not in results:
             idno_raw    = safe_get(row, 23)
-            dob_raw_val = row[22] if len(row) > 22 else None
+            dob_raw_val = row[26] if len(row) > 26 else None
             dob_str     = ""
             if dob_raw_val is not None:
                 import datetime as _dt
@@ -271,9 +271,9 @@ def get_life_daily_stats() -> dict:
             if not policy_raw or policy_raw.startswith("附約") or policy_raw == "保單號碼":
                 continue
 
-            # 壽星：欄位 22 = 被保人出生日（民國7碼）
+            # 壽星：欄位 26 = 被保人出生日（民國7碼）
             insured = safe_get(row, 21)
-            dob_val = safe_get(row, 22)
+            dob_val = safe_get(row, 26)
             if insured and insured not in seen_insured and dob_val:
                 dob = roc_to_ad(dob_val)
                 if dob and dob.month == today.month and dob.day == today.day:
