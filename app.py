@@ -262,7 +262,7 @@ def _parse_command(text: str) -> dict:
                 lines.append("▪️ 無待跟進")
 
             lines.append("")
-            lines.append(f"👥 增員待跟進（{len(recruit)} 組）")
+            lines.append(f"👥 準增待跟進（{len(recruit)} 組）")
             for r in recruit[:5]:
                 lines.append(f"▪️ {r.get('姓名','')} [{r.get('階段','')}]")
             if not recruit:
@@ -274,8 +274,12 @@ def _parse_command(text: str) -> dict:
             traceback.print_exc()
             return _t(f"❌ 待辦彙整錯誤：{e}")
 
-    # 說明 / help
-    elif cmd in ("說明", "help", "?"):
+    # 使用說明（連結）
+    elif cmd == "使用說明":
+        return _t("📖 詳細使用說明請點以下連結：\nhttps://insurance-service-bot-production.up.railway.app/guide")
+
+    # 指令 / help
+    elif cmd in ("指令", "help", "?"):
         pending  = get_db().get_all_pending_cases()
         contents = build_help_message(pending)
         return _f("指令說明", contents)
@@ -347,29 +351,29 @@ def _parse_command(text: str) -> dict:
         contents = build_biz_list_card(records, "💼 銷售追蹤")
         return _f("銷售追蹤", contents)
 
-    # 增員（列表，已結案不顯示）
-    elif cmd == "增員":
+    # 準增（列表，已結案不顯示）
+    elif cmd == "準增":
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "👥 增員追蹤")
         return _f("增員追蹤", contents)
 
-    # 新增準客戶 <姓名> <電話> <階段>
-    elif cmd == "新增準客戶" and len(parts) >= 2:
+    # 新增銷售 <姓名> <電話> <階段>
+    elif cmd == "新增銷售" and len(parts) >= 2:
         name  = parts[1]
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_biz(name, phone, stage)
         contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
-        return _f(f"已新增準客戶 {name}", contents)
+        return _f(f"已新增銷售 {name}", contents)
 
-    # 新增準增員 <姓名> <電話> <階段>
-    elif cmd == "新增準增員" and len(parts) >= 2:
+    # 新增準增 <姓名> <電話> <階段>
+    elif cmd == "新增準增" and len(parts) >= 2:
         name  = parts[1]
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
         contents = build_biz_single_card(rid, name, phone, stage, "👥 增員追蹤")
-        return _f(f"已新增準增員 {name}", contents)
+        return _f(f"已新增準增 {name}", contents)
 
     # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面
     elif cmd == "記錄" and len(parts) >= 2:
@@ -389,12 +393,12 @@ def _parse_command(text: str) -> dict:
         ok    = get_db().update_biz_stage(rid, stage)
         return _t(f"✅ 銷售 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到銷售 {rid}")
 
-    # 更新增員 <ID> <階段>
-    elif cmd == "更新增員" and len(parts) >= 3:
+    # 更新準增 <ID> <階段>
+    elif cmd == "更新準增" and len(parts) >= 3:
         rid   = parts[1]
         stage = parts[2]
         ok    = get_db().update_recruit_stage(rid, stage)
-        return _t(f"✅ 增員 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到增員 {rid}")
+        return _t(f"✅ 準增 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到準增 {rid}")
 
     # 新增卡片 <姓名> <銀行> <卡號前4碼> <效期> [保單號碼]
     elif cmd == "新增卡片" and len(parts) >= 5:
@@ -418,7 +422,7 @@ def _parse_command(text: str) -> dict:
         return _t("❌ 找不到該信用卡")
 
     else:
-        return _t("❓ 看不懂指令，輸入「說明」查看所有指令")
+        return _t("❓ 看不懂指令，輸入「指令」查看所有指令")
 
 
 # ── 工具 ──────────────────────────────────────────────────
@@ -495,6 +499,11 @@ def verify_key():
 @app.route("/", methods=["GET"])
 def index():
     return "保險發展小幫手 LINE Bot ✅"
+
+@app.route("/guide", methods=["GET"])
+def guide():
+    with open("guide.html", encoding="utf-8") as f:
+        return f.read(), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
