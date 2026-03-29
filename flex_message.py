@@ -208,7 +208,7 @@ def _case_item(c, name):
                  {"type": "text", "text": f"{emoji} {status}",
                   "size": "xl", "color": color, "align": "end", "flex": 0, "gravity": "center"},
              ]},
-            {"type": "text", "text": f"建立：{created}", "size": "lg", "color": "#B4B2A9", "wrap": True},
+            {"type": "text", "text": f"建立：{created[:10]}", "size": "lg", "color": "#B4B2A9"},
             {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
              "contents": [
                  {"type": "box", "layout": "horizontal", "spacing": "xs",
