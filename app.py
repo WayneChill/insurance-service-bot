@@ -366,14 +366,14 @@ def _parse_command(text: str) -> dict:
         contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
         return _f(f"已新增銷售 {name}", contents)
 
-    # 新增準增 <姓名> <電話> <階段>
-    elif cmd == "新增準增" and len(parts) >= 2:
+    # 新增增員 <姓名> <電話> <階段>
+    elif cmd == "新增增員" and len(parts) >= 2:
         name  = parts[1]
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
         contents = build_biz_single_card(rid, name, phone, stage, "👥 準增追蹤")
-        return _f(f"已新增準增 {name}", contents)
+        return _f(f"已新增增員 {name}", contents)
 
     # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面
     elif cmd == "記錄" and len(parts) >= 2:
