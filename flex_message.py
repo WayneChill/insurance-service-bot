@@ -50,7 +50,8 @@ def build_client_card(clients, search_name, cards=None):
 def _single_bubble(client, search_name, cards=None):
     name      = client["name"]
     applicant = client.get("applicant", "")
-    policies  = [p for p in client.get("policies", []) if p.get("policy_num")]
+    policies  = [p for p in client.get("policies", [])
+                 if p.get("policy_num") and p.get("status", "") == "正常"]
 
     policy_rows = []
     for p in policies[:8]:
