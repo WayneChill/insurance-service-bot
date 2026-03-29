@@ -137,11 +137,13 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
             if dob_raw_val is not None:
                 import datetime as _dt
                 if isinstance(dob_raw_val, (_dt.date, _dt.datetime)):
-                    dob_str = f"{dob_raw_val.year}/{dob_raw_val.month:02d}/{dob_raw_val.day:02d}"
+                    roc_y   = dob_raw_val.year - 1911
+                    dob_str = f"民國{roc_y}年{dob_raw_val.month:02d}月{dob_raw_val.day:02d}日"
                 else:
                     dob_date = roc_to_ad(dob_raw_val)
                     if dob_date:
-                        dob_str = f"{dob_date.year}/{dob_date.month:02d}/{dob_date.day:02d}"
+                        roc_y   = dob_date.year - 1911
+                        dob_str = f"民國{roc_y}年{dob_date.month:02d}月{dob_date.day:02d}日"
             print(f"[DOB] key={key!r} raw={dob_raw_val!r} result={dob_str!r}", flush=True)
             print(f"[DOB_COLS] {[(i, row[i]) for i in range(18, min(35, len(row))) if row[i] is not None]}", flush=True)
             results[key] = {
