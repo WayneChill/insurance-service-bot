@@ -533,8 +533,8 @@ def build_property_card(row, current_status=None) -> dict:
 
 def build_help_message(pending_cases=None) -> dict:
     commands = [
-        ("查詢 王小明",       "查看客戶資料和保單"),
-        ("進度 王小明",       "查看保服案件進度"),
+        ("查詢 姓名",          "查看客戶資料和保單"),
+        ("進度 姓名",          "查看保服案件進度"),
         ("早報",              "手動觸發今日早報"),
         ("待辦",              "顯示所有待辦彙整"),
         ("產險",              "查看產險到期名單"),
