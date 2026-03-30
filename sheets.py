@@ -19,14 +19,16 @@ SCOPES = [
 ]
 
 # 工作表名稱常數
-WS_CASES   = "保服案件"
-WS_CARDS   = "信用卡"
-WS_BIZ     = "業務追蹤"
-WS_RECRUIT = "增員追蹤"
+WS_CASES    = "保服案件"
+WS_CARDS    = "信用卡"
+WS_BIZ      = "業務追蹤"
+WS_RECRUIT  = "增員追蹤"
+WS_NEWCASE  = "新契約追蹤"
 
 # 業務 / 增員各階段
-BIZ_STAGES     = ["已聯繫", "建議書", "約簽約", "送保單"]
-RECRUIT_STAGES = ["已聯繫", "約聊聊", "約簽約"]
+BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
+RECRUIT_STAGES  = ["已聯繫", "約聊聊", "約簽約"]
+NEWCASE_STAGES  = ["核保中", "照會中", "發單中"]
 
 
 def _now() -> str:
@@ -88,6 +90,10 @@ class SheetsDB:
         if WS_RECRUIT not in existing:
             ws = self.spreadsheet.add_worksheet(WS_RECRUIT, rows=1000, cols=8)
             ws.append_row(["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"])
+
+        if WS_NEWCASE not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_NEWCASE, rows=1000, cols=8)
+            ws.append_row(["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間"])
 
     def _ws(self, name):
         return self.spreadsheet.worksheet(name)
@@ -222,6 +228,36 @@ class SheetsDB:
     def count_recruit_by_stage(self) -> dict:
         counts = {s: 0 for s in RECRUIT_STAGES}
         for r in self._ws(WS_RECRUIT).get_all_records():
+            s = r.get("階段", "")
+            if s in counts:
+                counts[s] += 1
+        return counts
+
+    # ══════════════════════════════════════════════════════════
+    # 新契約追蹤
+    # ══════════════════════════════════════════════════════════
+    def add_newcase(self, name: str, company: str, stage: str = "核保中", note: str = "") -> str:
+        ws = self._ws(WS_NEWCASE)
+        records = ws.get_all_records()
+        rid = "N" + str(len(records) + 1).zfill(3)
+        ws.append_row([rid, name, company, stage, note, _now(), _now()])
+        return rid
+
+    def get_newcase_list(self) -> list:
+        return self._ws(WS_NEWCASE).get_all_records()
+
+    def update_newcase_stage(self, rid: str, stage: str) -> bool:
+        ws = self._ws(WS_NEWCASE)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 4, stage)
+                ws.update_cell(i, 7, _now())
+                return True
+        return False
+
+    def count_newcase_by_stage(self) -> dict:
+        counts = {s: 0 for s in NEWCASE_STAGES}
+        for r in self._ws(WS_NEWCASE).get_all_records():
             s = r.get("階段", "")
             if s in counts:
                 counts[s] += 1

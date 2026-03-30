@@ -31,6 +31,9 @@ def _build_morning_report(db) -> str:
     # 增員區
     recruit_counts = db.count_recruit_by_stage()
 
+    # 新契約區
+    newcase_counts = db.count_newcase_by_stage()
+
     # 產險區（需要 42004.xlsx）
     prop_statuses = db.get_property_status()
     prop_counts   = get_property_daily_stats(prop_statuses)
@@ -55,6 +58,11 @@ def _build_morning_report(db) -> str:
         f"▪️ 已聯絡：{case_counts.get('已聯絡', 0)} 件",
         f"▪️ 已送出：{case_counts.get('已送出', 0)} 件",
         f"▪️ 核對中：{case_counts.get('核對中', 0)} 件",
+        "",
+        "📄 新契約區",
+        f"▪️ 核保中：{newcase_counts.get('核保中', 0)} 件",
+        f"▪️ 照會中：{newcase_counts.get('照會中', 0)} 件",
+        f"▪️ 發單中：{newcase_counts.get('發單中', 0)} 件",
         "",
         "💼 銷售區",
         f"▪️ 已聯繫：{biz_counts.get('已聯繫', 0)} 組",

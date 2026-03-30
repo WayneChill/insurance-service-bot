@@ -39,7 +39,9 @@ from sheets import SheetsDB
 from excel_reader import search_client
 from flex_message import (
     build_client_card, build_cases_card, build_case_created_card,
-    build_biz_list_card, build_biz_single_card, build_help_message
+    build_biz_list_card, build_biz_single_card,
+    build_newcase_list_card, build_newcase_single_card,
+    build_help_message
 )
 from scheduler import start_scheduler
 
@@ -345,6 +347,12 @@ def _parse_command(text: str) -> dict:
             traceback.print_exc()
             return _t(f"❌ 壽險查詢錯誤：{e}")
 
+    # 新契約（列表，已完成不顯示）
+    elif cmd == "新契約":
+        records  = [r for r in get_db().get_newcase_list() if r.get("階段") != "已完成"]
+        contents = build_newcase_list_card(records)
+        return _f("新契約追蹤", contents)
+
     # 銷售（列表，已結案不顯示）
     elif cmd == "銷售":
         records  = [r for r in get_db().get_biz_list() if r.get("階段") != "已結案"]
@@ -356,6 +364,22 @@ def _parse_command(text: str) -> dict:
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "👥 準增追蹤")
         return _f("準增追蹤", contents)
+
+    # 新增新件 <姓名> <保險公司>
+    elif cmd == "新增新件" and len(parts) >= 3:
+        name    = parts[1]
+        company = parts[2]
+        stage   = parts[3] if len(parts) >= 4 else "核保中"
+        rid     = get_db().add_newcase(name, company, stage)
+        contents = build_newcase_single_card(rid, name, company, stage)
+        return _f(f"已新增新件 {name}", contents)
+
+    # 更新新件 <ID> <階段>
+    elif cmd == "更新新件" and len(parts) >= 3:
+        rid   = parts[1]
+        stage = parts[2]
+        ok    = get_db().update_newcase_stage(rid, stage)
+        return _t(f"✅ 新件 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到新件 {rid}")
 
     # 新增銷售 <姓名> <電話> <階段>
     elif cmd == "新增銷售" and len(parts) >= 2:
