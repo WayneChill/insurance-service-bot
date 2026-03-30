@@ -100,18 +100,63 @@ def handle_message(event):
 
     # 對話暫存：先檢查是否在等待使用者補充資料
     pending = _pending.get(user_id)
-    if pending == "新增新件":
+    if pending == "查詢":
+        del _pending[user_id]
+        name     = text.strip()
+        clients  = search_client(name)
+        if not clients:
+            reply = _t(f"❌ 找不到「{name}」的資料\n請確認姓名是否正確")
+        else:
+            cards    = get_db().get_cards(name)
+            contents = build_client_card(clients, name, cards)
+            reply    = _f(f"客戶資料：{name}", contents)
+
+    elif pending == "進度":
+        del _pending[user_id]
+        name     = text.strip()
+        cases    = get_db().get_cases(name)
+        contents = build_cases_card(name, cases)
+        reply    = _f(f"保服進度：{name}", contents)
+
+    elif pending == "新增新件":
         parts = text.split()
         if len(parts) >= 2:
             del _pending[user_id]
-            name    = parts[0]
-            company = " ".join(parts[1:])
-            stage   = "核保中"
-            rid     = get_db().add_newcase(name, company, stage)
+            name     = parts[0]
+            company  = " ".join(parts[1:])
+            stage    = "核保中"
+            rid      = get_db().add_newcase(name, company, stage)
             contents = build_newcase_single_card(rid, name, company, stage)
             reply    = _f(f"已新增新件 {name}", contents)
         else:
             reply = _t("❌ 請輸入「姓名 保險公司」，例如：\n王小明 國泰人壽")
+
+    elif pending == "新增銷售":
+        parts = text.split()
+        if len(parts) >= 1:
+            del _pending[user_id]
+            name     = parts[0]
+            phone    = parts[1] if len(parts) >= 2 else ""
+            stage    = "已聯繫"
+            rid      = get_db().add_biz(name, phone, stage)
+            contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
+            reply    = _f(f"已新增銷售 {name}", contents)
+        else:
+            reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
+
+    elif pending == "新增增員":
+        parts = text.split()
+        if len(parts) >= 1:
+            del _pending[user_id]
+            name     = parts[0]
+            phone    = parts[1] if len(parts) >= 2 else ""
+            stage    = "已聯繫"
+            rid      = get_db().add_recruit(name, phone, stage)
+            contents = build_biz_single_card(rid, name, phone, stage, "👥 準增追蹤")
+            reply    = _f(f"已新增增員 {name}", contents)
+        else:
+            reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
+
     else:
         reply = _parse_command(text)
         if reply["type"] == "pending":
@@ -186,8 +231,12 @@ def _parse_command(text: str) -> dict:
     parts = text.split()
     cmd   = parts[0] if parts else ""
 
+    # 查詢（無參數 → 對話模式）
+    if cmd == "查詢" and len(parts) == 1:
+        return {"type": "pending", "action": "查詢", "text": "🔍 請輸入要查詢的客戶姓名"}
+
     # 查詢 <姓名>
-    if cmd == "查詢" and len(parts) >= 2:
+    elif cmd == "查詢" and len(parts) >= 2:
         name    = parts[1]
         clients = search_client(name)
         if not clients:
@@ -195,6 +244,10 @@ def _parse_command(text: str) -> dict:
         cards    = get_db().get_cards(name)
         contents = build_client_card(clients, name, cards)
         return _f(f"客戶資料：{name}", contents)
+
+    # 進度（無參數 → 對話模式）
+    elif cmd == "進度" and len(parts) == 1:
+        return {"type": "pending", "action": "進度", "text": "📋 請輸入要查看進度的客戶姓名"}
 
     # 進度 <姓名>
     elif cmd == "進度" and len(parts) >= 2:
@@ -410,6 +463,11 @@ def _parse_command(text: str) -> dict:
         ok    = get_db().update_newcase_stage(rid, stage)
         return _t(f"✅ 新件 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到新件 {rid}")
 
+    # 新增銷售（無參數 → 對話模式）
+    elif cmd == "新增銷售" and len(parts) == 1:
+        return {"type": "pending", "action": "新增銷售",
+                "text": "💼 新增銷售追蹤\n請輸入姓名和電話（空格分隔，電話可省略）\n例如：王小明 0912345678"}
+
     # 新增銷售 <姓名> <電話> <階段>
     elif cmd == "新增銷售" and len(parts) >= 2:
         name  = parts[1]
@@ -418,6 +476,11 @@ def _parse_command(text: str) -> dict:
         rid   = get_db().add_biz(name, phone, stage)
         contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
         return _f(f"已新增銷售 {name}", contents)
+
+    # 新增增員（無參數 → 對話模式）
+    elif cmd == "新增增員" and len(parts) == 1:
+        return {"type": "pending", "action": "新增增員",
+                "text": "👥 新增準增追蹤\n請輸入姓名和電話（空格分隔，電話可省略）\n例如：王小明 0912345678"}
 
     # 新增增員 <姓名> <電話> <階段>
     elif cmd == "新增增員" and len(parts) >= 2:

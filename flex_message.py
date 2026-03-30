@@ -314,13 +314,22 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
                 "contents": card_contents
             })
 
+    is_recruit = "增員" in title or "準增" in title
+    add_cmd    = "新增增員" if is_recruit else "新增銷售"
     return {
         "type": "bubble", "size": "kilo",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "text", "text": title, "weight": "bold", "size": "3xl", "color": "#0F6E56"},
-                {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
+                {"type": "box", "layout": "horizontal",
+                 "contents": [
+                     {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg",
+                      "color": "#0F6E56", "flex": 1, "gravity": "center"},
+                     {"type": "button",
+                      "action": {"type": "message", "label": "➕ 新增", "text": add_cmd},
+                      "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
+                 ]},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -456,15 +465,15 @@ def build_newcase_list_card(records: list) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
+                {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
                 {"type": "box", "layout": "horizontal",
                  "contents": [
-                     {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl",
-                      "color": "#0F6E56", "flex": 1},
+                     {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg",
+                      "color": "#0F6E56", "flex": 1, "gravity": "center"},
                      {"type": "button",
                       "action": {"type": "message", "label": "➕ 新增", "text": "新增新件"},
                       "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
                  ]},
-                {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -676,33 +685,39 @@ def build_property_card(row, current_status=None) -> dict:
 # ══════════════════════════════════════════════════════════
 
 def build_help_message(pending_cases=None) -> dict:
+    # (顯示文字, 說明, 點擊後發送的指令)
     commands = [
-        ("查詢 姓名",          "查看客戶資料和保單"),
-        ("進度 姓名",          "查看保服案件進度"),
-        ("早報",              "手動觸發今日早報"),
-        ("待辦",              "顯示所有待辦彙整"),
-        ("產險",              "查看產險到期名單"),
-        ("壽險",              "查看當日壽星/保單周年"),
-        ("新契約",            "查看新件追蹤列表"),
-        ("銷售",              "查看銷售追蹤列表"),
-        ("增員",              "查看準增追蹤列表"),
-        ("新增新件",           "新增新件追蹤（對話式）"),
-        ("新增銷售 姓名 電話", "新增銷售追蹤"),
-        ("新增增員 姓名 電話", "新增準增追蹤"),
-        ("新增卡片 姓名 銀行 卡號前4碼 效期", "新增信用卡"),
-        ("刪除卡片 姓名 銀行 卡號前4碼", "刪除信用卡"),
-        ("指令",              "顯示此說明"),
-        ("使用說明",          "開啟完整使用說明網頁"),
+        ("查詢 姓名",    "查看客戶資料和保單",      "查詢"),
+        ("進度 姓名",    "查看保服案件進度",        "進度"),
+        ("早報",        "手動觸發今日早報",         "早報"),
+        ("待辦",        "顯示所有待辦彙整",         "待辦"),
+        ("產險",        "查看產險到期名單",         "產險"),
+        ("壽險",        "查看當日壽星/保單周年",    "壽險"),
+        ("新契約",      "查看新件追蹤列表",         "新契約"),
+        ("銷售",        "查看銷售追蹤列表",         "銷售"),
+        ("增員",        "查看準增追蹤列表",         "增員"),
+        ("新增新件",    "新增新件追蹤",             "新增新件"),
+        ("新增銷售",    "新增銷售追蹤",             "新增銷售"),
+        ("新增增員",    "新增準增追蹤",             "新增增員"),
+        ("指令",        "顯示此說明",               "指令"),
+        ("使用說明",    "開啟完整使用說明網頁",      "使用說明"),
     ]
     rows = []
-    for cmd, desc in commands:
+    for cmd, desc, trigger in commands:
         rows.append({
-            "type": "box", "layout": "vertical", "spacing": "xs",
+            "type": "box", "layout": "horizontal", "spacing": "sm",
             "paddingAll": "10px", "backgroundColor": "#F1EFE8",
             "cornerRadius": "6px", "margin": "sm",
+            "action": {"type": "message", "label": cmd, "text": trigger},
             "contents": [
-                {"type": "text", "text": cmd,  "size": "lg", "weight": "bold", "color": "#0F6E56", "wrap": True},
-                {"type": "text", "text": desc, "size": "md", "color": "#5F5E5A"},
+                {"type": "box", "layout": "vertical", "flex": 1,
+                 "contents": [
+                     {"type": "text", "text": cmd,  "size": "lg", "weight": "bold",
+                      "color": "#0F6E56", "wrap": True},
+                     {"type": "text", "text": desc, "size": "md", "color": "#5F5E5A", "wrap": True},
+                 ]},
+                {"type": "text", "text": "›", "size": "xxl", "color": "#B4B2A9",
+                 "gravity": "center", "flex": 0},
             ]
         })
 
