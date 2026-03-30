@@ -47,7 +47,7 @@ def _build_morning_report(db) -> str:
         f"▪️ 新件：{prop_counts['new']} 組",
         f"▪️ 延後：{prop_counts['delay']} 組",
         "",
-        "🎂 壽險區",
+        "🔔 壽險區",
         f"▪️ 當日壽星：{life_stats['birthday_count']} 位",
         f"▪️ 保單周年：{life_stats['anniversary_count']} 組",
         "",
