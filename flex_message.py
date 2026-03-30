@@ -740,6 +740,67 @@ def build_help_message(pending_cases=None) -> dict:
     }
 
 
+# ── 行程卡片 ──────────────────────────────────────────────
+TYPE_COLOR_SCHEDULE = {
+    "拜訪客戶": {"bg": "#E1F5EE", "text": "#085041", "sub": "#0F6E56", "icon": "🏠"},
+    "課程/開會": {"bg": "#E6F1FB", "text": "#0C447C", "sub": "#185FA5", "icon": "👥"},
+    "聯絡":     {"bg": "#FAECE7", "text": "#712B13", "sub": "#993C1D", "icon": "📞"},
+    "私人":     {"bg": "#EEEDFE", "text": "#3C3489", "sub": "#534AB7", "icon": "🌟"},
+}
+
+
+def build_schedule_card(records: list, title: str, subtitle: str) -> dict:
+    if not records:
+        items = [{"type": "text", "text": "這段期間沒有行程", "size": "sm", "color": "#888780"}]
+    else:
+        items = []
+        current_date = None
+        for r in records:
+            date   = r.get("日期", "")
+            time   = r.get("時間", "")
+            stype  = r.get("類型", "")
+            rtitle = r.get("標題", "") or "-"
+            note   = r.get("備註", "")
+            c = TYPE_COLOR_SCHEDULE.get(stype, {"bg": "#F1EFE8", "text": "#2C2C2A", "sub": "#888780", "icon": "📅"})
+            if date != current_date:
+                current_date = date
+                try:
+                    from datetime import datetime as _dt
+                    d = _dt.strptime(date, "%Y/%m/%d")
+                    weekdays = ["一", "二", "三", "四", "五", "六", "日"]
+                    date_label = f"{d.month}/{d.day}（週{weekdays[d.weekday()]}）"
+                except Exception:
+                    date_label = date
+                items.append({
+                    "type": "text", "text": date_label,
+                    "size": "xs", "weight": "bold", "color": "#888780",
+                    "margin": "md" if items else "none"
+                })
+            content = [
+                {"type": "text", "text": f"{c['icon']} {rtitle}", "size": "sm", "weight": "bold", "color": c["text"]},
+                {"type": "text", "text": f"{time}　{stype}", "size": "xs", "color": c["sub"], "margin": "xs"},
+            ]
+            if note:
+                content.append({"type": "text", "text": note, "size": "xs", "color": "#888780", "wrap": True, "margin": "xs"})
+            items.append({
+                "type": "box", "layout": "vertical",
+                "paddingAll": "10px", "backgroundColor": c["bg"],
+                "cornerRadius": "8px", "margin": "sm",
+                "contents": content
+            })
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
+            "contents": [
+                {"type": "text", "text": title,    "weight": "bold", "size": "lg", "color": "#0F6E56"},
+                {"type": "text", "text": subtitle, "size": "xs",               "color": "#0F6E56"},
+            ]
+        },
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
+    }
+
+
 # ── 通用按鈕 ──────────────────────────────────────────────
 def _postback_btn(label, data, color):
     return {

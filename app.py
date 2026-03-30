@@ -104,6 +104,7 @@ def handle_message(event):
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
         "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
+        "行程","今日行程","本月行程","新增行程",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and _pending.get(user_id):
@@ -519,6 +520,53 @@ def _parse_command(text: str) -> dict:
         stage = parts[2]
         ok    = get_db().update_newcase_stage(rid, stage)
         return _t(f"✅ 新件 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到新件 {rid}")
+
+    # 行程相關指令
+    elif cmd == "行程":
+        records = get_db().get_week_schedule()
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        start = today - timedelta(days=today.weekday())
+        end   = start + timedelta(days=6)
+        subtitle = f"{start.month}/{start.day} ～ {end.month}/{end.day}"
+        from flex_message import build_schedule_card
+        contents = build_schedule_card(records, "📅 本週行程", subtitle)
+        return _f("本週行程", contents)
+
+    elif cmd == "今日行程":
+        from datetime import date as _date
+        records = get_db().get_today_schedule()
+        today = _date.today()
+        subtitle = f"{today.month}/{today.day}（今天）"
+        from flex_message import build_schedule_card
+        contents = build_schedule_card(records, "📅 今日行程", subtitle)
+        return _f("今日行程", contents)
+
+    elif cmd == "本月行程":
+        from datetime import date as _date
+        records = get_db().get_month_schedule()
+        today = _date.today()
+        subtitle = f"{today.year}年{today.month}月"
+        from flex_message import build_schedule_card
+        contents = build_schedule_card(records, "📅 本月行程", subtitle)
+        return _f("本月行程", contents)
+
+    elif cmd == "新增行程" and len(parts) >= 5:
+        date_str = parts[1]
+        time_str = parts[2]
+        stype    = parts[3]
+        title    = parts[4]
+        note     = " ".join(parts[5:]) if len(parts) > 5 else ""
+        try:
+            from datetime import datetime as _dt
+            _dt.strptime(date_str, "%Y/%m/%d")
+        except Exception:
+            return _t("❌ 日期格式錯誤，請用 YYYY/MM/DD\n例：新增行程 2026/03/28 14:00 拜訪客戶 王小明 信義區")
+        valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
+        if stype not in valid_types:
+            return _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
+        sid = get_db().add_schedule(date_str, time_str, stype, title, note)
+        return _t(f"✅ 已新增行程 #{sid}\n日期：{date_str} {time_str}\n類型：{stype}\n標題：{title}" + (f"\n備註：{note}" if note else ""))
 
     # 新增銷售（無參數 → 對話模式）
     elif cmd == "新增銷售" and len(parts) == 1:
