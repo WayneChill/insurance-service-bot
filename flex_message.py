@@ -31,7 +31,7 @@ TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 # 業務 / 增員 / 新契約階段按鈕
 BIZ_STAGES_DEF      = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#1DD1A1"), ("已結案", "#FF9F43")]
 RECRUIT_STAGES_DEF  = [("已聯繫", "#54A0FF"), ("約聊聊", "#00D2D3"), ("約報聘", "#1DD1A1"), ("已結案", "#FF9F43")]
-NEWCASE_STAGES_DEF  = [("核保中", "#54A0FF"), ("照會中", "#FF922B"), ("發單中", "#1DD1A1"), ("已完成", "#20C997")]
+NEWCASE_STAGES_DEF  = [("核保中", "#54A0FF"), ("照會中", "#FF922B"), ("發單中", "#20C997"), ("已完成", "#20C997")]
 
 
 # ══════════════════════════════════════════════════════════
@@ -231,6 +231,9 @@ def _case_item(c, name):
                       _postback_btn(UPDATE_BTNS[3], f"action=update&id={id_enc}&name={name_enc}&status={quote(UPDATE_BTNS[3])}", UPDATE_COLORS[3]),
                   ]},
              ]},
+            {"type": "button",
+             "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {case_id}"},
+             "style": "secondary", "height": "sm", "margin": "sm"},
         ]
     }
 
@@ -381,11 +384,11 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
 
 
 # ══════════════════════════════════════════════════════════
-# 新契約追蹤
+# 新件追蹤
 # ══════════════════════════════════════════════════════════
 
 def build_newcase_list_card(records: list) -> dict:
-    """新契約列表，每筆含階段更新按鈕"""
+    """新件追蹤列表，每筆含階段更新按鈕"""
     if not records:
         items = [{"type": "text", "text": "目前沒有記錄", "size": "lg", "color": "#888780"}]
     else:
@@ -435,6 +438,11 @@ def build_newcase_list_card(records: list) -> dict:
                 "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
                 "contents": btn_rows
             })
+            card_contents.append({
+                "type": "button",
+                "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {rid}"},
+                "style": "secondary", "height": "sm", "margin": "sm"
+            })
 
             items.append({
                 "type": "box", "layout": "vertical", "spacing": "xs",
@@ -448,7 +456,7 @@ def build_newcase_list_card(records: list) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "📄 新契約追蹤", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
+                {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
                 {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
@@ -477,7 +485,7 @@ def build_newcase_single_card(rid: str, name: str, company: str, stage: str) -> 
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "text", "text": "✅ 已登記", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
-                {"type": "text", "text": "新契約追蹤", "size": "lg", "color": "#0F6E56"},
+                {"type": "text", "text": "新件追蹤", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {
@@ -668,7 +676,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("待辦",              "顯示所有待辦彙整"),
         ("產險",              "查看產險到期名單"),
         ("壽險",              "查看當日壽星/保單周年"),
-        ("新契約",            "查看新契約追蹤列表"),
+        ("新契約",            "查看新件追蹤列表"),
         ("銷售",              "查看銷售追蹤列表"),
         ("增員",              "查看準增追蹤列表"),
         ("新增新件 姓名 保險公司", "新增新契約"),

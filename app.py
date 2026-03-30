@@ -351,7 +351,7 @@ def _parse_command(text: str) -> dict:
     elif cmd == "新契約":
         records  = [r for r in get_db().get_newcase_list() if r.get("階段") != "已完成"]
         contents = build_newcase_list_card(records)
-        return _f("新契約追蹤", contents)
+        return _f("新件追蹤", contents)
 
     # 銷售（列表，已結案不顯示）
     elif cmd == "銷售":
@@ -403,9 +403,18 @@ def _parse_command(text: str) -> dict:
     elif cmd == "記錄" and len(parts) >= 2:
         rid = parts[1]
         if len(parts) >= 3:
-            note     = " ".join(parts[2:])
-            is_biz   = rid.upper().startswith("B")
-            name     = get_db().update_biz_note(rid, note) if is_biz else get_db().update_recruit_note(rid, note)
+            note   = " ".join(parts[2:])
+            prefix = rid.upper()[0] if rid else ""
+            if prefix == "B":
+                name = get_db().update_biz_note(rid, note)
+            elif prefix == "R":
+                name = get_db().update_recruit_note(rid, note)
+            elif prefix == "N":
+                name = get_db().update_newcase_note(rid, note)
+            elif prefix == "C":
+                name = get_db().update_case_note(rid, note)
+            else:
+                name = ""
             return _t(f"✅ {rid} 備註已記錄：{note}" if name else f"❌ 找不到 {rid}")
         else:
             return _t(f"✏️ 請輸入備註內容：\n格式：記錄 {rid} [內容]\n例：記錄 {rid} 已約好下週三見面")

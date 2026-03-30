@@ -126,6 +126,15 @@ class SheetsDB:
                 return True
         return False
 
+    def update_case_note(self, case_id: str, note: str) -> str:
+        ws = self._ws(WS_CASES)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("案件ID") == case_id:
+                ws.update_cell(i, 6, note)
+                ws.update_cell(i, 8, _now())
+                return r.get("客戶姓名", "")
+        return ""
+
     def count_cases_by_status(self) -> dict:
         """回傳每日早報用的保服統計"""
         ws = self._ws(WS_CASES)
@@ -254,6 +263,15 @@ class SheetsDB:
                 ws.update_cell(i, 7, _now())
                 return True
         return False
+
+    def update_newcase_note(self, rid: str, note: str) -> str:
+        ws = self._ws(WS_NEWCASE)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
 
     def count_newcase_by_stage(self) -> dict:
         counts = {s: 0 for s in NEWCASE_STAGES}
