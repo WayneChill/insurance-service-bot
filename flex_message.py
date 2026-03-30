@@ -421,22 +421,30 @@ def build_life_detail_card(detail: dict) -> dict:
             contents.append({"type": "separator", "margin": "md"})
         contents.append({"type": "text", "text": "📋 保單周年",
                          "weight": "bold", "size": "xl", "color": "#0F6E56", "margin": "md"})
+        # 依被保人合併
+        grouped = {}
         for a in anniversaries:
+            grouped.setdefault(a["name"], []).append(a)
+        for name, items in grouped.items():
+            policy_rows = []
+            for a in items:
+                policy_rows.append({
+                    "type": "box", "layout": "horizontal", "spacing": "sm",
+                    "contents": [
+                        {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
+                         "size": "lg", "color": "#888780", "flex": 3},
+                        {"type": "text", "text": f"第{a['years']}年",
+                         "size": "lg", "color": "#FF6B6B", "align": "end", "flex": 2},
+                    ]
+                })
             contents.append({
                 "type": "box", "layout": "vertical", "spacing": "xs",
                 "paddingAll": "8px", "backgroundColor": "#F1EFE8",
                 "cornerRadius": "6px", "margin": "sm",
                 "contents": [
-                    {"type": "box", "layout": "horizontal",
-                     "contents": [
-                         {"type": "text", "text": a["name"], "size": "xxl",
-                          "weight": "bold", "color": "#2C2C2A", "flex": 3},
-                         {"type": "text", "text": f"第{a['years']}年",
-                          "size": "xl", "color": "#FF6B6B", "align": "end", "flex": 2},
-                     ]},
-                    {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
-                     "size": "lg", "color": "#888780"},
-                ]
+                    {"type": "text", "text": name, "size": "xxl",
+                     "weight": "bold", "color": "#2C2C2A", "margin": "xs"},
+                ] + policy_rows
             })
 
     if not contents:
