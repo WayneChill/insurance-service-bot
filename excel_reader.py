@@ -324,7 +324,7 @@ def get_life_daily_detail() -> dict:
 
             # 壽星
             insured = safe_get(row, 21)
-            dob_val = safe_get(row, 22)
+            dob_val = safe_get(row, 26)
             tel     = safe_get(row, 34)
             if insured and insured not in seen_insured and dob_val:
                 dob = roc_to_ad(dob_val)
