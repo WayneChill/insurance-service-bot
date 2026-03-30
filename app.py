@@ -346,6 +346,9 @@ def _parse_command(text: str) -> dict:
             # 增員待跟進
             recruit = [r for r in get_db().get_recruit_list() if r.get("階段") in ["已聯繫", "約聊聊"]]
 
+            # 新件追蹤（核保中/照會中/發單中）
+            newcases = [r for r in get_db().get_newcase_list() if r.get("階段") in ["核保中", "照會中", "發單中"]]
+
             lines = ["📌 今日待辦彙整", ""]
             lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
             for u in urgent_list[:5]:
@@ -373,6 +376,13 @@ def _parse_command(text: str) -> dict:
                 lines.append(f"▪️ {r.get('姓名','')} [{r.get('階段','')}]")
             if not recruit:
                 lines.append("▪️ 無待跟進")
+
+            lines.append("")
+            lines.append(f"📄 新件追蹤（{len(newcases)} 件）")
+            for n in newcases[:5]:
+                lines.append(f"▪️ {n.get('姓名','')} {n.get('保險公司','')} [{n.get('階段','')}]")
+            if not newcases:
+                lines.append("▪️ 無進行中")
 
             return _t("\n".join(lines))
         except Exception as e:
