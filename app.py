@@ -149,7 +149,7 @@ def handle_message(event):
             phone    = parts[1] if len(parts) >= 2 else ""
             stage    = "已聯繫"
             rid      = get_db().add_biz(name, phone, stage)
-            contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
+            contents = build_biz_single_card(rid, name, phone, stage, "銷售追蹤")
             reply    = _f(f"已新增銷售 {name}", contents)
         else:
             reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
@@ -162,7 +162,7 @@ def handle_message(event):
             phone    = parts[1] if len(parts) >= 2 else ""
             stage    = "已聯繫"
             rid      = get_db().add_recruit(name, phone, stage)
-            contents = build_biz_single_card(rid, name, phone, stage, "👥 準增追蹤")
+            contents = build_biz_single_card(rid, name, phone, stage, "準增追蹤")
             reply    = _f(f"已新增增員 {name}", contents)
         else:
             reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
@@ -490,13 +490,13 @@ def _parse_command(text: str) -> dict:
     # 銷售（列表，已結案不顯示）
     elif cmd == "銷售":
         records  = [r for r in get_db().get_biz_list() if r.get("階段") != "已結案"]
-        contents = build_biz_list_card(records, "💼 銷售追蹤")
+        contents = build_biz_list_card(records, "銷售追蹤")
         return _f("銷售追蹤", contents)
 
     # 增員（列表，已結案不顯示）
     elif cmd == "增員":
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
-        contents = build_biz_list_card(records, "👥 準增追蹤")
+        contents = build_biz_list_card(records, "準增追蹤")
         return _f("準增追蹤", contents)
 
     # 新增新件（無參數 → 進入對話模式）
@@ -531,7 +531,7 @@ def _parse_command(text: str) -> dict:
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_biz(name, phone, stage)
-        contents = build_biz_single_card(rid, name, phone, stage, "💼 銷售追蹤")
+        contents = build_biz_single_card(rid, name, phone, stage, "銷售追蹤")
         return _f(f"已新增銷售 {name}", contents)
 
     # 新增增員（無參數 → 對話模式）
@@ -545,7 +545,7 @@ def _parse_command(text: str) -> dict:
         phone = parts[2] if len(parts) >= 3 else ""
         stage = parts[3] if len(parts) >= 4 else "已聯繫"
         rid   = get_db().add_recruit(name, phone, stage)
-        contents = build_biz_single_card(rid, name, phone, stage, "👥 準增追蹤")
+        contents = build_biz_single_card(rid, name, phone, stage, "準增追蹤")
         return _f(f"已新增增員 {name}", contents)
 
     # 記錄 <ID> [內容]  例：記錄 B001 已約好下週見面

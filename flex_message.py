@@ -471,7 +471,7 @@ def build_newcase_list_card(records: list) -> dict:
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "box", "layout": "horizontal", "contents": [
-                    {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl",
+                    {"type": "text", "text": "新件追蹤", "weight": "bold", "size": "3xl",
                      "color": "#0F6E56", "flex": 1, "gravity": "center"},
                     {"type": "button",
                      "action": {"type": "message", "label": "+", "text": "新增新件"},
@@ -697,7 +697,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("待辦",        "顯示所有待辦彙整",                "待辦"),
         ("產險",        "查看產險到期名單",                "產險"),
         ("壽險",        "查看當日壽星/保單周年",           "壽險"),
-        ("新件",        "查看新件追蹤列表",                "新契約"),
+        ("新件",        "查看新契約列表",                  "新契約"),
         ("銷售",        "查看銷售追蹤列表",                "銷售"),
         ("增員",        "查看準增追蹤列表",                "增員"),
         ("新增新件",    "新增新件追蹤",                    "新增新件"),
