@@ -456,7 +456,14 @@ def build_newcase_list_card(records: list) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
+                {"type": "box", "layout": "horizontal",
+                 "contents": [
+                     {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl",
+                      "color": "#0F6E56", "flex": 1},
+                     {"type": "button",
+                      "action": {"type": "message", "label": "➕ 新增", "text": "新增新件"},
+                      "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
+                 ]},
                 {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
@@ -679,7 +686,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("新契約",            "查看新件追蹤列表"),
         ("銷售",              "查看銷售追蹤列表"),
         ("增員",              "查看準增追蹤列表"),
-        ("新增新件 姓名 保險公司", "新增新契約"),
+        ("新增新件",           "新增新件追蹤（對話式）"),
         ("新增銷售 姓名 電話", "新增銷售追蹤"),
         ("新增增員 姓名 電話", "新增準增追蹤"),
         ("新增卡片 姓名 銀行 卡號前4碼 效期", "新增信用卡"),
