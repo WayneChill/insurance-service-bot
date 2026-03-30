@@ -329,10 +329,11 @@ def get_life_daily_detail() -> dict:
             if insured and insured not in seen_insured and dob_val:
                 dob = roc_to_ad(dob_val)
                 if dob and dob.month == today.month and dob.day == today.day:
+                    roc_y = dob.year - 1911
                     result["birthdays"].append({
                         "name": insured,
                         "tel":  tel,
-                        "dob":  f"{dob.year}/{dob.month:02d}/{dob.day:02d}",
+                        "dob":  f"{roc_y}年{dob.month:02d}月{dob.day:02d}日",
                     })
                     seen_insured.add(insured)
 

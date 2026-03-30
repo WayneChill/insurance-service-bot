@@ -158,15 +158,15 @@ def build_cases_card(name, cases):
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "保服進度", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
-                {"type": "box", "layout": "horizontal",
-                 "contents": [
-                     {"type": "text", "text": f"{name} · 待處理 {len(pending)} 件",
-                      "size": "lg", "color": "#0F6E56", "flex": 1, "gravity": "center"},
-                     {"type": "button",
-                      "action": {"type": "message", "label": "+", "text": "新增保服"},
-                      "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
-                 ]},
+                {"type": "box", "layout": "horizontal", "contents": [
+                    {"type": "text", "text": "保服進度", "weight": "bold", "size": "3xl",
+                     "color": "#0F6E56", "flex": 1, "gravity": "center"},
+                    {"type": "button",
+                     "action": {"type": "message", "label": "+", "text": "新增保服"},
+                     "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
+                ]},
+                {"type": "text", "text": f"{name} · 待處理 {len(pending)} 件",
+                 "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -327,15 +327,14 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": title, "weight": "bold", "size": "3xl", "color": "#0F6E56"},
-                {"type": "box", "layout": "horizontal",
-                 "contents": [
-                     {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg",
-                      "color": "#0F6E56", "flex": 1, "gravity": "center"},
-                     {"type": "button",
-                      "action": {"type": "message", "label": "+", "text": add_cmd},
-                      "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
-                 ]},
+                {"type": "box", "layout": "horizontal", "contents": [
+                    {"type": "text", "text": title, "weight": "bold", "size": "3xl",
+                     "color": "#0F6E56", "flex": 1, "gravity": "center"},
+                    {"type": "button",
+                     "action": {"type": "message", "label": "+", "text": add_cmd},
+                     "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
+                ]},
+                {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
@@ -471,15 +470,14 @@ def build_newcase_list_card(records: list) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl", "color": "#0F6E56"},
-                {"type": "box", "layout": "horizontal",
-                 "contents": [
-                     {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg",
-                      "color": "#0F6E56", "flex": 1, "gravity": "center"},
-                     {"type": "button",
-                      "action": {"type": "message", "label": "+", "text": "新增新件"},
-                      "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
-                 ]},
+                {"type": "box", "layout": "horizontal", "contents": [
+                    {"type": "text", "text": "📄 新件追蹤", "weight": "bold", "size": "3xl",
+                     "color": "#0F6E56", "flex": 1, "gravity": "center"},
+                    {"type": "button",
+                     "action": {"type": "message", "label": "+", "text": "新增新件"},
+                     "style": "primary", "color": "#0F6E56", "height": "sm", "flex": 0},
+                ]},
+                {"type": "text", "text": f"共 {len(records)} 筆", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
