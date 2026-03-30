@@ -103,7 +103,7 @@ def handle_message(event):
     _COMMANDS = {
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
-        "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服",
+        "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and _pending.get(user_id):
@@ -166,6 +166,26 @@ def handle_message(event):
             reply    = _f(f"已新增增員 {name}", contents)
         else:
             reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
+
+    elif pending == "新增卡片":
+        parts = text.split()
+        if len(parts) >= 4:
+            del _pending[user_id]
+            c_name, c_bank, c_num, c_exp = parts[0], parts[1], parts[2], parts[3]
+            get_db().add_card(c_name, c_bank, c_num, c_exp)
+            reply = _t(f"✅ 已新增信用卡\n姓名：{c_name}\n銀行：{c_bank}\n卡號：{c_num}\n效期：{c_exp}")
+        else:
+            reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼 效期\n例如：王小明 國泰 1234 2026/12")
+
+    elif pending == "刪除卡片":
+        parts = text.split()
+        if len(parts) >= 3:
+            del _pending[user_id]
+            c_name, c_bank, c_num = parts[0], parts[1], parts[2]
+            ok = get_db().delete_card(c_name, c_bank, c_num)
+            reply = _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num}" if ok else "❌ 找不到該信用卡")
+        else:
+            reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼\n例如：王小明 國泰 1234")
 
     elif pending == "新增保服":
         parts = text.split()
@@ -357,6 +377,13 @@ def _parse_command(text: str) -> dict:
                 lines.append("▪️ 無急件")
 
             lines.append("")
+            lines.append(f"📄 新件追蹤（{len(newcases)} 件）")
+            for n in newcases[:5]:
+                lines.append(f"▪️ {n.get('姓名','')} {n.get('保險公司','')} [{n.get('階段','')}]")
+            if not newcases:
+                lines.append("▪️ 無進行中")
+
+            lines.append("")
             lines.append(f"📋 保服未完成（{len(cases)} 件）")
             for c in cases[:5]:
                 lines.append(f"▪️ {c.get('客戶姓名','')} {c.get('服務項目','')} [{c.get('狀態','')}]")
@@ -376,13 +403,6 @@ def _parse_command(text: str) -> dict:
                 lines.append(f"▪️ {r.get('姓名','')} [{r.get('階段','')}]")
             if not recruit:
                 lines.append("▪️ 無待跟進")
-
-            lines.append("")
-            lines.append(f"📄 新件追蹤（{len(newcases)} 件）")
-            for n in newcases[:5]:
-                lines.append(f"▪️ {n.get('姓名','')} {n.get('保險公司','')} [{n.get('階段','')}]")
-            if not newcases:
-                lines.append("▪️ 無進行中")
 
             return _t("\n".join(lines))
         except Exception as e:
@@ -562,6 +582,11 @@ def _parse_command(text: str) -> dict:
         ok    = get_db().update_recruit_stage(rid, stage)
         return _t(f"✅ 準增 {rid} 已更新為「{stage}」" if ok else f"❌ 找不到準增 {rid}")
 
+    # 新增卡片（無參數 → 對話模式）
+    elif cmd == "新增卡片" and len(parts) == 1:
+        return {"type": "pending", "action": "新增卡片",
+                "text": "💳 新增信用卡\n請輸入：姓名 銀行 卡號前4碼 效期\n例如：王小明 國泰 1234 2026/12"}
+
     # 新增卡片 <姓名> <銀行> <卡號前4碼> <效期> [保單號碼]
     elif cmd == "新增卡片" and len(parts) >= 5:
         c_name   = parts[1]
@@ -572,6 +597,11 @@ def _parse_command(text: str) -> dict:
         get_db().add_card(c_name, c_bank, c_num, c_exp, c_policy)
         note = f"（指定保單：{c_policy}）" if c_policy else "（所有保單）"
         return _t(f"✅ 已新增信用卡\n姓名：{c_name}\n銀行：{c_bank}\n卡號：{c_num}\n效期：{c_exp}\n{note}")
+
+    # 刪除卡片（無參數 → 對話模式）
+    elif cmd == "刪除卡片" and len(parts) == 1:
+        return {"type": "pending", "action": "刪除卡片",
+                "text": "💳 刪除信用卡\n請輸入：姓名 銀行 卡號前4碼\n例如：王小明 國泰 1234"}
 
     # 刪除卡片 <姓名> <銀行> <卡號前4碼>
     elif cmd == "刪除卡片" and len(parts) >= 4:
