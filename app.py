@@ -49,6 +49,9 @@ app      = Flask(__name__)
 line_bot = LineBotApi(os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
 handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
+# ── 對話暫存（單人 Bot 用記憶體狀態）────────────────────
+_pending: dict = {}   # user_id → pending action name
+
 # ── DB（啟動時背景初始化，確保排程器能準時執行）─────────
 _db = None
 
@@ -92,8 +95,29 @@ def callback():
 # ── 文字訊息處理 ──────────────────────────────────────────
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    text  = event.message.text.strip()
-    reply = _parse_command(text)
+    text    = event.message.text.strip()
+    user_id = event.source.user_id
+
+    # 對話暫存：先檢查是否在等待使用者補充資料
+    pending = _pending.get(user_id)
+    if pending == "新增新件":
+        parts = text.split()
+        if len(parts) >= 2:
+            del _pending[user_id]
+            name    = parts[0]
+            company = " ".join(parts[1:])
+            stage   = "核保中"
+            rid     = get_db().add_newcase(name, company, stage)
+            contents = build_newcase_single_card(rid, name, company, stage)
+            reply    = _f(f"已新增新件 {name}", contents)
+        else:
+            reply = _t("❌ 請輸入「姓名 保險公司」，例如：\n王小明 國泰人壽")
+    else:
+        reply = _parse_command(text)
+        if reply["type"] == "pending":
+            _pending[user_id] = reply["action"]
+            reply = _t(reply["text"])
+
     if reply["type"] == "flex":
         line_bot.reply_message(
             event.reply_token,
@@ -364,6 +388,11 @@ def _parse_command(text: str) -> dict:
         records  = [r for r in get_db().get_recruit_list() if r.get("階段") != "已結案"]
         contents = build_biz_list_card(records, "👥 準增追蹤")
         return _f("準增追蹤", contents)
+
+    # 新增新件（無參數 → 進入對話模式）
+    elif cmd == "新增新件" and len(parts) == 1:
+        return {"type": "pending", "action": "新增新件",
+                "text": "📄 新增新件\n請輸入姓名和保險公司（空格分隔）\n例如：王小明 國泰人壽"}
 
     # 新增新件 <姓名> <保險公司>
     elif cmd == "新增新件" and len(parts) >= 3:
