@@ -102,8 +102,8 @@ def handle_message(event):
     # 若使用者輸入的是已知指令，取消等待直接執行
     _COMMANDS = {
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
-        "新增新件","新增銷售","新增增員","新增卡片","刪除卡片",
-        "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","壽險",
+        "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
+        "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and _pending.get(user_id):
@@ -166,6 +166,18 @@ def handle_message(event):
             reply    = _f(f"已新增增員 {name}", contents)
         else:
             reply = _t("❌ 請輸入姓名（電話可省略），例如：\n王小明 0912345678")
+
+    elif pending == "新增保服":
+        parts = text.split()
+        if len(parts) >= 2:
+            del _pending[user_id]
+            name     = parts[0]
+            service  = " ".join(parts[1:])
+            case_id  = get_db().add_case(name, service)
+            contents = build_case_created_card(case_id, name, service)
+            reply    = _f(f"案件開立 {name}", contents)
+        else:
+            reply = _t("❌ 請輸入「姓名 服務項目」，例如：\n王小明 理賠")
 
     else:
         reply = _parse_command(text)
@@ -276,6 +288,11 @@ def _parse_command(text: str) -> dict:
             import traceback
             traceback.print_exc()
             return _t(f"❌ 早報錯誤：{e}")
+
+    # 新增保服（無參數 → 對話模式）
+    elif cmd == "新增保服" and len(parts) == 1:
+        return {"type": "pending", "action": "新增保服",
+                "text": "📋 新增保服案件\n請輸入「姓名 服務項目」\n例如：王小明 理賠"}
 
     # 保服（待處理案件列表）
     elif cmd == "保服":
