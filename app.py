@@ -99,6 +99,16 @@ def handle_message(event):
     user_id = event.source.user_id
 
     # 對話暫存：先檢查是否在等待使用者補充資料
+    # 若使用者輸入的是已知指令，取消等待直接執行
+    _COMMANDS = {
+        "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
+        "新增新件","新增銷售","新增增員","新增卡片","刪除卡片",
+        "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","壽險",
+    }
+    first_word = text.split()[0] if text.split() else ""
+    if first_word in _COMMANDS and _pending.get(user_id):
+        del _pending[user_id]
+
     pending = _pending.get(user_id)
     if pending == "查詢":
         del _pending[user_id]
