@@ -188,6 +188,32 @@ def handle_message(event):
         else:
             reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼\n例如：王小明 國泰 1234")
 
+    elif pending == "新增行程":
+        parts = text.split()
+        if len(parts) >= 4:
+            del _pending[user_id]
+            date_str = parts[0]
+            time_str = parts[1]
+            stype    = parts[2]
+            title    = parts[3]
+            note     = " ".join(parts[4:]) if len(parts) > 4 else ""
+            valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
+            try:
+                from datetime import datetime as _dt
+                _dt.strptime(date_str, "%Y/%m/%d")
+                valid_date = True
+            except Exception:
+                valid_date = False
+            if not valid_date:
+                reply = _t("❌ 日期格式錯誤，請用 YYYY/MM/DD\n例：2026/03/28 14:00 拜訪客戶 王小明")
+            elif stype not in valid_types:
+                reply = _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
+            else:
+                sid = get_db().add_schedule(date_str, time_str, stype, title, note)
+                reply = _t(f"✅ 已新增行程 #{sid}\n日期：{date_str} {time_str}\n類型：{stype}\n標題：{title}" + (f"\n備註：{note}" if note else ""))
+        else:
+            reply = _t("❌ 格式不符，請輸入：\n日期 時間 類型 標題 備註(可省略)\n例如：2026/03/28 14:00 拜訪客戶 王小明 信義區")
+
     elif pending == "新增保服":
         parts = text.split()
         if len(parts) >= 2:
@@ -550,6 +576,10 @@ def _parse_command(text: str) -> dict:
         from flex_message import build_schedule_card
         contents = build_schedule_card(records, "📅 本月行程", subtitle)
         return _f("本月行程", contents)
+
+    elif cmd == "新增行程" and len(parts) == 1:
+        return {"type": "pending", "action": "新增行程",
+                "text": "📅 新增行程\n請輸入：日期 時間 類型 標題 備註(可省略)\n類型：拜訪客戶／課程/開會／聯絡／私人\n例如：2026/03/28 14:00 拜訪客戶 王小明 信義區"}
 
     elif cmd == "新增行程" and len(parts) >= 5:
         date_str = parts[1]
