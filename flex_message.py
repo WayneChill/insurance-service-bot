@@ -407,14 +407,12 @@ def build_life_detail_card(detail: dict) -> dict:
                 "paddingAll": "8px", "backgroundColor": "#F1EFE8",
                 "cornerRadius": "6px", "margin": "sm",
                 "contents": [
-                    {"type": "box", "layout": "vertical", "flex": 3,
+                    {"type": "box", "layout": "vertical",
                      "contents": [
                          {"type": "text", "text": b["name"], "size": "xxl",
                           "weight": "bold", "color": "#2C2C2A"},
                          {"type": "text", "text": b["dob"], "size": "lg", "color": "#888780"},
                      ]},
-                    {"type": "text", "text": str(b.get("tel", "") or "").strip() or "-", "size": "xl",
-                     "color": "#0F6E56", "align": "end", "flex": 2, "gravity": "center"},
                 ]
             })
 
@@ -438,8 +436,6 @@ def build_life_detail_card(detail: dict) -> dict:
                      ]},
                     {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
                      "size": "lg", "color": "#888780"},
-                    {"type": "text", "text": str(a.get("tel", "") or "").strip() or "-",
-                     "size": "lg", "color": "#0F6E56"},
                 ]
             })
 
