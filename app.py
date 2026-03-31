@@ -104,7 +104,7 @@ def handle_message(event):
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
         "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
-        "行程","今日行程","本月行程","新增行程",
+        "行程","今日行程","本周行程","本月行程","新增行程",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and _pending.get(user_id):
@@ -614,6 +614,18 @@ def _parse_command(text: str) -> dict:
             return _t(f"❌ 行程載入失敗：{e}")
 
     elif cmd == "今日行程":
+        try:
+            from datetime import date as _date
+            from flex_message import build_schedule_card
+            records = get_db().get_today_schedule()
+            today = _date.today()
+            subtitle = f"{today.month}/{today.day}（今天）"
+            contents = build_schedule_card(records, "📅 今日行程", subtitle)
+            return _f("今日行程", contents)
+        except Exception as e:
+            return _t(f"❌ 行程載入失敗：{e}")
+
+    elif cmd == "本周行程":
         try:
             records = get_db().get_week_schedule()
             from datetime import date as _date, timedelta
