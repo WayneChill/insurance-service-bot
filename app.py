@@ -603,20 +603,6 @@ def _parse_command(text: str) -> dict:
     # 行程相關指令
     elif cmd == "行程":
         try:
-            records = get_db().get_week_schedule()
-            from datetime import date as _date, timedelta
-            from flex_message import build_schedule_card
-            today = _date.today()
-            start = today - timedelta(days=today.weekday())
-            end   = start + timedelta(days=6)
-            subtitle = f"{start.month}/{start.day} ～ {end.month}/{end.day}"
-            contents = build_schedule_card(records, "📅 本週行程", subtitle)
-            return _f("本週行程", contents)
-        except Exception as e:
-            return _t(f"❌ 行程載入失敗：{e}")
-
-    elif cmd == "今日行程":
-        try:
             from datetime import date as _date
             from flex_message import build_schedule_card
             records = get_db().get_today_schedule()
@@ -624,6 +610,20 @@ def _parse_command(text: str) -> dict:
             subtitle = f"{today.month}/{today.day}（今天）"
             contents = build_schedule_card(records, "📅 今日行程", subtitle)
             return _f("今日行程", contents)
+        except Exception as e:
+            return _t(f"❌ 行程載入失敗：{e}")
+
+    elif cmd == "今日行程":
+        try:
+            records = get_db().get_week_schedule()
+            from datetime import date as _date, timedelta
+            from flex_message import build_schedule_card
+            today = _date.today()
+            start = today - timedelta(days=today.weekday())
+            end   = start + timedelta(days=6)
+            subtitle = f"{start.month}/{start.day} ～ {end.month}/{end.day}"
+            contents = build_schedule_card(records, "📅 本周行程", subtitle)
+            return _f("本周行程", contents)
         except Exception as e:
             return _t(f"❌ 行程載入失敗：{e}")
 
