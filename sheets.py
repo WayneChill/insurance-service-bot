@@ -297,6 +297,14 @@ class SheetsDB:
         ws.append_row([sid, date, time, stype, title, note, _now()])
         return sid
 
+    def delete_schedule(self, sid: str) -> bool:
+        ws = self._ws(WS_SCHEDULE)
+        for i, row in enumerate(ws.get_all_records(), start=2):
+            if str(row.get("ID", "")).strip() == sid.strip():
+                ws.delete_rows(i)
+                return True
+        return False
+
     def get_schedule_by_range(self, start_date: str, end_date: str) -> list:
         from datetime import datetime as _dt
         ws = self._ws(WS_SCHEDULE)

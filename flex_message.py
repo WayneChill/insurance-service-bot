@@ -780,17 +780,28 @@ def build_schedule_card(records: list, title: str, subtitle: str) -> dict:
                     "size": "xs", "weight": "bold", "color": "#888780",
                     "margin": "md" if items else "none"
                 })
+            sid = r.get("ID", "")
             content = [
                 {"type": "text", "text": f"{c['icon']} {rtitle}", "size": "sm", "weight": "bold", "color": c["text"]},
                 {"type": "text", "text": f"{time}　{stype}", "size": "xs", "color": c["sub"], "margin": "xs"},
             ]
             if note:
                 content.append({"type": "text", "text": note, "size": "xs", "color": "#888780", "wrap": True, "margin": "xs"})
+            row_contents = [
+                {"type": "box", "layout": "vertical", "flex": 1, "contents": content},
+            ]
+            if sid:
+                row_contents.append({
+                    "type": "button",
+                    "action": {"type": "postback", "label": "刪除", "data": f"action=del_schedule&id={sid}"},
+                    "style": "primary", "color": "#FF6B6B", "height": "sm", "flex": 0,
+                    "margin": "sm",
+                })
             items.append({
-                "type": "box", "layout": "vertical",
+                "type": "box", "layout": "horizontal",
                 "paddingAll": "10px", "backgroundColor": c["bg"],
                 "cornerRadius": "8px", "margin": "sm",
-                "contents": content
+                "contents": row_contents
             })
     return {
         "type": "bubble", "size": "kilo",

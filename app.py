@@ -207,10 +207,10 @@ def handle_message(event):
                 sid = get_db().add_schedule(date_str, time_str, stype, title, note)
                 from flex_message import build_schedule_card
                 contents = build_schedule_card(
-                    [{"日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
-                    f"✅ 行程已新增 #{sid}", f"{date_str} {time_str}"
+                    [{"ID": sid, "日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
+                    "✅ 行程已新增", f"{date_str} {time_str}"
                 )
-                reply = _f(f"已新增行程 #{sid}", contents)
+                reply = _f("已新增行程", contents)
         else:
             reply = _t("❌ 格式不符，請輸入：\n日期 時間 類型 標題 備註(可省略)\n例如：1150331 1400 拜訪客戶 王小明 信義區")
 
@@ -289,6 +289,12 @@ def handle_postback(event):
         label = _LABELS[action]
         get_db().write_property_status(policy_id, pname, label)
         _reply_text(event, _REPLIES[action])
+
+    # ── 刪除行程
+    elif action == "del_schedule":
+        sid = unquote(params.get("id", ""))
+        ok  = get_db().delete_schedule(sid)
+        _reply_text(event, f"✅ 行程 {sid} 已刪除" if ok else f"❌ 找不到行程 {sid}")
 
     else:
         _reply_text(event, "未知操作")
@@ -652,10 +658,10 @@ def _parse_command(text: str) -> dict:
         sid = get_db().add_schedule(date_str, time_str, stype, title, note)
         from flex_message import build_schedule_card
         contents = build_schedule_card(
-            [{"日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
-            f"✅ 行程已新增 #{sid}", f"{date_str} {time_str}"
+            [{"ID": sid, "日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
+            "✅ 行程已新增", f"{date_str} {time_str}"
         )
-        return _f(f"已新增行程 #{sid}", contents)
+        return _f("已新增行程", contents)
 
     # 新增銷售（無參數 → 對話模式）
     elif cmd == "新增銷售" and len(parts) == 1:
