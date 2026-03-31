@@ -723,11 +723,11 @@ def build_help_message(pending_cases=None) -> dict:
             "contents": [
                 {"type": "box", "layout": "vertical", "flex": 1,
                  "contents": [
-                     {"type": "text", "text": cmd,  "size": "md", "weight": "bold",
+                     {"type": "text", "text": cmd,  "size": "lg", "weight": "bold",
                       "color": "#0F6E56", "wrap": True},
-                     {"type": "text", "text": desc, "size": "sm", "color": "#5F5E5A", "wrap": True},
+                     {"type": "text", "text": desc, "size": "md", "color": "#5F5E5A", "wrap": True},
                  ]},
-                {"type": "text", "text": "›", "size": "xl", "color": "#B4B2A9",
+                {"type": "text", "text": "›", "size": "xxl", "color": "#B4B2A9",
                  "gravity": "center", "flex": 0},
             ]
         })
@@ -737,8 +737,8 @@ def build_help_message(pending_cases=None) -> dict:
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
-                {"type": "text", "text": "業務發展小幫手", "weight": "bold", "size": "xl", "color": "#0F6E56"},
-                {"type": "text", "text": "指令說明", "size": "md", "color": "#0F6E56"},
+                {"type": "text", "text": "業務發展小幫手", "weight": "bold", "size": "xxl", "color": "#0F6E56"},
+                {"type": "text", "text": "指令說明", "size": "lg", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "contents": rows}
