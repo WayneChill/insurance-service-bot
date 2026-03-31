@@ -192,27 +192,27 @@ def handle_message(event):
         parts = text.split()
         if len(parts) >= 4:
             del _pending[user_id]
-            date_str = parts[0]
-            time_str = parts[1]
+            date_raw = parts[0]
+            time_raw = parts[1]
             stype    = parts[2]
             title    = parts[3]
             note     = " ".join(parts[4:]) if len(parts) > 4 else ""
             valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
-            try:
-                from datetime import datetime as _dt
-                _dt.strptime(date_str, "%Y/%m/%d")
-                valid_date = True
-            except Exception:
-                valid_date = False
-            if not valid_date:
-                reply = _t("❌ 日期格式錯誤，請用 YYYY/MM/DD\n例：2026/03/28 14:00 拜訪客戶 王小明")
+            date_str, time_str, err = _parse_schedule_datetime(date_raw, time_raw)
+            if err:
+                reply = _t(err)
             elif stype not in valid_types:
                 reply = _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
             else:
                 sid = get_db().add_schedule(date_str, time_str, stype, title, note)
-                reply = _t(f"✅ 已新增行程 #{sid}\n日期：{date_str} {time_str}\n類型：{stype}\n標題：{title}" + (f"\n備註：{note}" if note else ""))
+                from flex_message import build_schedule_card
+                contents = build_schedule_card(
+                    [{"日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
+                    f"✅ 行程已新增 #{sid}", f"{date_str} {time_str}"
+                )
+                reply = _f(f"已新增行程 #{sid}", contents)
         else:
-            reply = _t("❌ 格式不符，請輸入：\n日期 時間 類型 標題 備註(可省略)\n例如：2026/03/28 14:00 拜訪客戶 王小明 信義區")
+            reply = _t("❌ 格式不符，請輸入：\n日期 時間 類型 標題 備註(可省略)\n例如：1150331 1400 拜訪客戶 王小明 信義區")
 
     elif pending == "新增保服":
         parts = text.split()
@@ -292,6 +292,53 @@ def handle_postback(event):
 
     else:
         _reply_text(event, "未知操作")
+
+
+# ── 行程日期/時間解析工具 ────────────────────────────────
+def _parse_schedule_datetime(date_raw: str, time_raw: str):
+    """
+    date_raw: 民國7碼 1150331 → 2026/03/31，或已有斜線 115/03/31，或西元 2026/03/31
+    time_raw: 4碼 1400 → 14:00，或已有冒號 14:00
+    回傳 (date_str, time_str, error_msg)；error_msg 為 None 表示成功
+    """
+    from datetime import datetime as _dt
+    # 時間解析
+    t = time_raw.replace(":", "")
+    if len(t) == 4 and t.isdigit():
+        time_str = f"{t[:2]}:{t[2:]}"
+    elif ":" in time_raw and len(time_raw) == 5:
+        time_str = time_raw
+    else:
+        return None, None, "❌ 時間格式錯誤，請輸入如 1400 或 14:00"
+
+    # 日期解析
+    d = date_raw.replace("/", "")
+    if len(d) == 7 and d.isdigit():
+        # 民國7碼 YYYMMDD
+        roc_y = int(d[:3])
+        month = int(d[3:5])
+        day   = int(d[5:7])
+        try:
+            _dt(roc_y + 1911, month, day)
+            date_str = f"{roc_y + 1911}/{month:02d}/{day:02d}"
+        except Exception:
+            return None, None, "❌ 日期無效，請確認月份和日期是否正確"
+    elif len(d) == 8 and d.isdigit():
+        # 西元8碼 YYYYMMDD
+        try:
+            _dt(int(d[:4]), int(d[4:6]), int(d[6:8]))
+            date_str = f"{d[:4]}/{d[4:6]}/{d[6:8]}"
+        except Exception:
+            return None, None, "❌ 日期無效"
+    else:
+        # 嘗試直接解析 YYYY/MM/DD
+        try:
+            _dt.strptime(date_raw, "%Y/%m/%d")
+            date_str = date_raw
+        except Exception:
+            return None, None, "❌ 日期格式錯誤，請輸入如 1150331（民國）或 2026/03/31"
+
+    return date_str, time_str, None
 
 
 # ── 指令解析 ──────────────────────────────────────────────
@@ -549,54 +596,66 @@ def _parse_command(text: str) -> dict:
 
     # 行程相關指令
     elif cmd == "行程":
-        records = get_db().get_week_schedule()
-        from datetime import date as _date, timedelta
-        today = _date.today()
-        start = today - timedelta(days=today.weekday())
-        end   = start + timedelta(days=6)
-        subtitle = f"{start.month}/{start.day} ～ {end.month}/{end.day}"
-        from flex_message import build_schedule_card
-        contents = build_schedule_card(records, "📅 本週行程", subtitle)
-        return _f("本週行程", contents)
+        try:
+            records = get_db().get_week_schedule()
+            from datetime import date as _date, timedelta
+            from flex_message import build_schedule_card
+            today = _date.today()
+            start = today - timedelta(days=today.weekday())
+            end   = start + timedelta(days=6)
+            subtitle = f"{start.month}/{start.day} ～ {end.month}/{end.day}"
+            contents = build_schedule_card(records, "📅 本週行程", subtitle)
+            return _f("本週行程", contents)
+        except Exception as e:
+            return _t(f"❌ 行程載入失敗：{e}")
 
     elif cmd == "今日行程":
-        from datetime import date as _date
-        records = get_db().get_today_schedule()
-        today = _date.today()
-        subtitle = f"{today.month}/{today.day}（今天）"
-        from flex_message import build_schedule_card
-        contents = build_schedule_card(records, "📅 今日行程", subtitle)
-        return _f("今日行程", contents)
+        try:
+            from datetime import date as _date
+            from flex_message import build_schedule_card
+            records = get_db().get_today_schedule()
+            today = _date.today()
+            subtitle = f"{today.month}/{today.day}（今天）"
+            contents = build_schedule_card(records, "📅 今日行程", subtitle)
+            return _f("今日行程", contents)
+        except Exception as e:
+            return _t(f"❌ 行程載入失敗：{e}")
 
     elif cmd == "本月行程":
-        from datetime import date as _date
-        records = get_db().get_month_schedule()
-        today = _date.today()
-        subtitle = f"{today.year}年{today.month}月"
-        from flex_message import build_schedule_card
-        contents = build_schedule_card(records, "📅 本月行程", subtitle)
-        return _f("本月行程", contents)
+        try:
+            from datetime import date as _date
+            from flex_message import build_schedule_card
+            records = get_db().get_month_schedule()
+            today = _date.today()
+            subtitle = f"{today.year}年{today.month}月"
+            contents = build_schedule_card(records, "📅 本月行程", subtitle)
+            return _f("本月行程", contents)
+        except Exception as e:
+            return _t(f"❌ 行程載入失敗：{e}")
 
     elif cmd == "新增行程" and len(parts) == 1:
         return {"type": "pending", "action": "新增行程",
-                "text": "📅 新增行程\n請輸入：日期 時間 類型 標題 備註(可省略)\n類型：拜訪客戶／課程/開會／聯絡／私人\n例如：2026/03/28 14:00 拜訪客戶 王小明 信義區"}
+                "text": "📅 新增行程\n請輸入：日期 時間 類型 標題 備註(可省略)\n類型：拜訪客戶／課程開會／聯絡／私人\n例如：1150331 1400 拜訪客戶 王小明 信義區"}
 
     elif cmd == "新增行程" and len(parts) >= 5:
-        date_str = parts[1]
-        time_str = parts[2]
+        date_raw = parts[1]
+        time_raw = parts[2]
         stype    = parts[3]
         title    = parts[4]
         note     = " ".join(parts[5:]) if len(parts) > 5 else ""
-        try:
-            from datetime import datetime as _dt
-            _dt.strptime(date_str, "%Y/%m/%d")
-        except Exception:
-            return _t("❌ 日期格式錯誤，請用 YYYY/MM/DD\n例：新增行程 2026/03/28 14:00 拜訪客戶 王小明 信義區")
+        date_str, time_str, err = _parse_schedule_datetime(date_raw, time_raw)
+        if err:
+            return _t(err)
         valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
         if stype not in valid_types:
             return _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
         sid = get_db().add_schedule(date_str, time_str, stype, title, note)
-        return _t(f"✅ 已新增行程 #{sid}\n日期：{date_str} {time_str}\n類型：{stype}\n標題：{title}" + (f"\n備註：{note}" if note else ""))
+        from flex_message import build_schedule_card
+        contents = build_schedule_card(
+            [{"日期": date_str, "時間": time_str, "類型": stype, "標題": title, "備註": note}],
+            f"✅ 行程已新增 #{sid}", f"{date_str} {time_str}"
+        )
+        return _f(f"已新增行程 #{sid}", contents)
 
     # 新增銷售（無參數 → 對話模式）
     elif cmd == "新增銷售" and len(parts) == 1:
