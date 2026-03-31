@@ -119,7 +119,7 @@ def _single_bubble(client, search_name, cards=None):
         })
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "paddingAll": "16px",
             "contents": header_contents,
@@ -154,7 +154,7 @@ def build_cases_card(name, cases):
         {"type": "text", "text": "目前沒有保服案件", "size": "lg", "color": "#888780"}
     ]
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -182,7 +182,7 @@ def build_case_created_card(case_id: str, name: str, service: str, policy: str =
         "建立時間": datetime.now().strftime("%Y/%m/%d %H:%M"),
     }
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -323,7 +323,7 @@ def build_biz_list_card(records: list, title: str = "業務追蹤") -> dict:
     is_recruit = "增員" in title or "準增" in title
     add_cmd    = "新增增員" if is_recruit else "新增銷售"
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -362,7 +362,7 @@ def build_biz_single_card(rid: str, name: str, phone: str, stage: str, title: st
         })
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -466,7 +466,7 @@ def build_newcase_list_card(records: list) -> dict:
             })
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -500,7 +500,7 @@ def build_newcase_single_card(rid: str, name: str, company: str, stage: str) -> 
         })
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -605,7 +605,7 @@ def build_life_detail_card(detail: dict) -> dict:
                      "size": "xl", "color": "#888780"}]
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -637,7 +637,7 @@ def build_property_card(row, current_status=None) -> dict:
     st_color = PROP_STATUS_COLOR.get(st_text, "#FFA502")
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": color,
             "contents": [
@@ -733,7 +733,7 @@ def build_help_message(pending_cases=None) -> dict:
         })
 
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
@@ -805,7 +805,7 @@ def build_schedule_card(records: list, title: str, subtitle: str) -> dict:
                 "contents": row_contents
             })
     return {
-        "type": "bubble", "size": "kilo",
+        "type": "bubble", "size": "micro",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
