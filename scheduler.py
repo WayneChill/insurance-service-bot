@@ -41,18 +41,34 @@ def _build_morning_report(db) -> str:
     # 壽險區（需要 42003.xlsx）
     life_stats = get_life_daily_stats()
 
+    # 行程區
+    try:
+        today_sched = db.get_today_schedule()
+        week_sched  = db.get_week_schedule()
+        month_sched = db.get_month_schedule()
+        sched_today = len(today_sched)
+        sched_week  = len(week_sched)
+        sched_month = len(month_sched)
+    except Exception:
+        sched_today = sched_week = sched_month = 0
+
     lines = [
         f"主人早安！{today} 今日待辦如下：",
+        "",
+        "📅 行程區",
+        f"▪️ 今日：{sched_today} 組",
+        f"▪️ 當周：{sched_week} 組",
+        f"▪️ 當月：{sched_month} 組",
+        "",
+        "🔔 壽險區",
+        f"▪️ 當日壽星：{life_stats['birthday_count']} 位",
+        f"▪️ 保單周年：{life_stats['anniversary_count']} 組",
         "",
         "🚨 產險區",
         f"▪️ 急件：{prop_counts['urgent']} 組",
         f"▪️ 追蹤：{prop_counts['track']} 組",
         f"▪️ 新件：{prop_counts['new']} 組",
         f"▪️ 延後：{prop_counts['delay']} 組",
-        "",
-        "🔔 壽險區",
-        f"▪️ 當日壽星：{life_stats['birthday_count']} 位",
-        f"▪️ 保單周年：{life_stats['anniversary_count']} 組",
         "",
         "📄 新件區",
         f"▪️ 核保中：{newcase_counts.get('核保中', 0)} 件",
