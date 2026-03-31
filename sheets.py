@@ -24,11 +24,13 @@ WS_CARDS    = "信用卡"
 WS_BIZ      = "業務追蹤"
 WS_RECRUIT  = "增員追蹤"
 WS_NEWCASE  = "新契約追蹤"
+WS_SCHEDULE = "行程"
 
 # 業務 / 增員各階段
 BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
 RECRUIT_STAGES  = ["已聯繫", "約聊聊", "約簽約"]
 NEWCASE_STAGES  = ["核保中", "照會中", "發單中"]
+SCHEDULE_TYPES  = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
 
 
 def _now() -> str:
@@ -94,6 +96,10 @@ class SheetsDB:
         if WS_NEWCASE not in existing:
             ws = self.spreadsheet.add_worksheet(WS_NEWCASE, rows=1000, cols=8)
             ws.append_row(["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間"])
+
+        if WS_SCHEDULE not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_SCHEDULE, rows=1000, cols=8)
+            ws.append_row(["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"])
 
     def _ws(self, name):
         return self.spreadsheet.worksheet(name)
@@ -280,6 +286,56 @@ class SheetsDB:
             if s in counts:
                 counts[s] += 1
         return counts
+
+    # ══════════════════════════════════════════════════════════
+    # 行程
+    # ══════════════════════════════════════════════════════════
+    def add_schedule(self, date: str, time: str, stype: str, title: str, note: str = "") -> str:
+        ws = self._ws(WS_SCHEDULE)
+        records = ws.get_all_records()
+        sid = "S" + str(len(records) + 1).zfill(3)
+        ws.append_row([sid, date, time, stype, title, note, _now()])
+        return sid
+
+    def get_schedule_by_range(self, start_date: str, end_date: str) -> list:
+        from datetime import datetime as _dt
+        ws = self._ws(WS_SCHEDULE)
+        records = ws.get_all_records()
+        result = []
+        for r in records:
+            try:
+                d = _dt.strptime(r.get("日期", ""), "%Y/%m/%d").date()
+                s = _dt.strptime(start_date, "%Y/%m/%d").date()
+                e = _dt.strptime(end_date, "%Y/%m/%d").date()
+                if s <= d <= e:
+                    result.append(r)
+            except:
+                continue
+        return sorted(result, key=lambda x: (x.get("日期", ""), x.get("時間", "")))
+
+    def get_today_schedule(self) -> list:
+        from datetime import date
+        today = date.today().strftime("%Y/%m/%d")
+        return self.get_schedule_by_range(today, today)
+
+    def get_week_schedule(self) -> list:
+        from datetime import date, timedelta
+        today = date.today()
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+        return self.get_schedule_by_range(
+            start.strftime("%Y/%m/%d"),
+            end.strftime("%Y/%m/%d")
+        )
+
+    def get_month_schedule(self) -> list:
+        from datetime import date
+        import calendar
+        today = date.today()
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        start = today.replace(day=1).strftime("%Y/%m/%d")
+        end = today.replace(day=last_day).strftime("%Y/%m/%d")
+        return self.get_schedule_by_range(start, end)
 
     # ══════════════════════════════════════════════════════════
     # 產險狀態（原 insurance-bot 的 SPREADSHEET_ID 同一份 Sheets）
