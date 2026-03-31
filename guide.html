@@ -25,6 +25,8 @@
   .menu-item .desc { font-size: 12px; color: #5F5E5A; line-height: 1.5; }
   .menu-item.blue { background: #E6F1FB; }
   .menu-item.blue .name { color: #185FA5; }
+  .menu-item.purple { background: #EEEDFE; }
+  .menu-item.purple .name { color: #534AB7; }
 
   .cmd-item { border-bottom: 0.5px solid #F1EFE8; padding: 12px 0; }
   .cmd-item:last-child { border-bottom: none; }
@@ -44,6 +46,7 @@
   .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-right: 4px; margin-bottom: 4px; }
   .tag-green { background: #E1F5EE; color: #0F6E56; }
   .tag-blue { background: #E6F1FB; color: #185FA5; }
+  .tag-purple { background: #EEEDFE; color: #534AB7; }
 
   .tip { background: #FAEEDA; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #633806; margin-top: 10px; }
   .tip b { color: #412402; }
@@ -53,7 +56,7 @@
 
 <div class="hero">
   <h1>保險業務發展小幫手</h1>
-  <p>完整使用說明 · v1.0.0</p>
+  <p>完整使用說明 · v1.5.0</p>
 </div>
 
 <div class="container">
@@ -84,13 +87,23 @@
       </div>
       <div class="menu-item">
         <div class="icon">👥</div>
-        <div class="name">準增</div>
+        <div class="name">增員</div>
         <div class="desc">增員追蹤名單，顯示每位準增員的跟進階段</div>
       </div>
       <div class="menu-item blue">
         <div class="icon">📌</div>
         <div class="name">待辦</div>
-        <div class="desc">今日所有待辦彙整：產險急件、保服未完成、銷售&準增待跟進</div>
+        <div class="desc">今日所有待辦彙整：產險急件、保服未完成、銷售&增員待跟進</div>
+      </div>
+      <div class="menu-item purple">
+        <div class="icon">📅</div>
+        <div class="name">行程</div>
+        <div class="desc">今日行程一覽，可查今日／本周／本月，亦可新增或刪除行程</div>
+      </div>
+      <div class="menu-item">
+        <div class="icon">📄</div>
+        <div class="name">新件</div>
+        <div class="desc">新件追蹤列表，顯示核保中、照會中、發單中各筆案件</div>
       </div>
     </div>
   </div>
@@ -101,15 +114,25 @@
     <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px;">每天早上 <b style="color:#0F6E56">8:00</b> 自動推播，也可以隨時發「<b style="color:#0F6E56">早報</b>」手動觸發。</p>
     <div class="morning-box">主人早安！MM/DD 今日待辦如下：
 
+📅 行程區
+▪️ 今日：_ 組
+▪️ 本周：_ 組
+▪️ 本月：_ 組
+
+🔔 壽險區
+▪️ 當日壽星：_ 位
+▪️ 保單周年：_ 組
+
 🚨 產險區
 ▪️ 急件：_ 組
 ▪️ 追蹤：_ 組
 ▪️ 新件：_ 組
 ▪️ 延後：_ 組
 
-🎂 壽險區
-▪️ 當日壽星：_ 位
-▪️ 保單周年：_ 組
+📄 新件區
+▪️ 核保中：_ 件
+▪️ 照會中：_ 件
+▪️ 發單中：_ 件
 
 📋 保服區
 ▪️ 已聯絡：_ 件
@@ -120,20 +143,19 @@
 ▪️ 已聯繫：_ 組
 ▪️ 建議書：_ 組
 ▪️ 約簽約：_ 組
-▪️ 送保單：_ 組
 
-👥 準增區
+👥 增員區
 ▪️ 已聯繫：_ 組
 ▪️ 約聊聊：_ 組
-▪️ 約簽約：_ 組</div>
+▪️ 約報聘：_ 組</div>
   </div>
 
   <!-- 如何查詢客戶 -->
   <div class="section">
     <div class="section-title"><span>🔍</span> 如何查詢客戶</div>
     <div class="cmd-item">
-      <div class="cmd-code">查詢 姓名</div>
-      <div class="cmd-desc">輸入客戶姓名，Bot 會從壽險和產險保單資料中搜尋，顯示：</div>
+      <div class="cmd-code">查詢</div>
+      <div class="cmd-desc">按下「查詢」後，Bot 會請你輸入姓名，從壽險和產險保單資料中搜尋，顯示：</div>
       <div style="margin-top:8px;font-size:12px;color:#5F5E5A;">
         <span class="tag tag-green">基本資料</span>
         <span class="tag tag-green">電話</span>
@@ -141,7 +163,6 @@
         <span class="tag tag-green">所有保單</span>
         <span class="tag tag-green">信用卡</span>
       </div>
-      <div class="cmd-example"><b>範例：</b>查詢 王小明</div>
       <div class="tip">💡 查詢到客戶後，可以直接點卡片底部按鈕開立保服案件（理賠、契變、保費變更）</div>
     </div>
   </div>
@@ -153,7 +174,7 @@
       <div class="flow-num">1</div>
       <div class="flow-content">
         <div class="flow-title">查詢客戶 → 開立案件</div>
-        <div class="flow-text">發「查詢 姓名」找到客戶後，點卡片底部的「理賠」「契變」「保費」按鈕開立</div>
+        <div class="flow-text">發「查詢」找到客戶後，點卡片底部的「理賠」「契變」「保費」按鈕開立；或直接發「新增保服」以對話方式新增</div>
       </div>
     </div>
     <div class="flow-step">
@@ -176,52 +197,86 @@
         </div>
       </div>
     </div>
-    <div class="flow-step">
-      <div class="flow-num">4</div>
-      <div class="flow-content">
-        <div class="flow-title">查詢特定客戶進度</div>
-        <div class="flow-text">發「進度 姓名」查看該客戶所有保服案件</div>
-        <div class="cmd-example"><b>範例：</b>進度 王小明</div>
-      </div>
+  </div>
+
+  <!-- 行程功能 -->
+  <div class="section">
+    <div class="section-title"><span>📅</span> 行程功能</div>
+    <div class="cmd-item">
+      <div class="cmd-code">行程</div>
+      <div class="cmd-desc">查看今日所有行程</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">本周行程</div>
+      <div class="cmd-desc">查看本週行程列表（週一到週日）</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">本月行程</div>
+      <div class="cmd-desc">查看本月所有行程</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增行程</div>
+      <div class="cmd-desc">Bot 會引導輸入：日期 時間 類型 標題 備註</div>
+      <div style="margin-top:8px;font-size:12px;color:#5F5E5A;margin-bottom:4px;">行程類型：</div>
+      <span class="tag tag-green">拜訪客戶</span>
+      <span class="tag tag-blue">課程/開會</span>
+      <span class="tag" style="background:#FAECE7;color:#712B13;">聯絡</span>
+      <span class="tag tag-purple">私人</span>
+      <div class="cmd-example"><b>日期格式：</b>民國7碼 1150331 = 115年03月31日<br><b>時間格式：</b>4碼 1400 = 14:00</div>
+      <div class="tip">💡 新增後的卡片和列表卡片上都有「刪除」按鈕，可直接刪除該筆行程</div>
     </div>
   </div>
 
-  <!-- 新增銷售/準增錄入流程 -->
+  <!-- 新增銷售/增員錄入流程 -->
   <div class="section">
     <div class="section-title"><span>➕</span> 新增銷售追蹤</div>
     <div class="cmd-item">
-      <div class="cmd-code">新增銷售 姓名 電話 階段</div>
-      <div class="cmd-desc">新增一位準客戶到銷售追蹤名單</div>
+      <div class="cmd-code">新增銷售</div>
+      <div class="cmd-desc">Bot 引導輸入姓名和電話，自動新增到銷售追蹤</div>
       <div style="margin-top:8px;font-size:12px;color:#5F5E5A;margin-bottom:4px;">可用階段：</div>
       <span class="tag tag-green">已聯繫</span>
       <span class="tag tag-green">建議書</span>
       <span class="tag tag-green">約簽約</span>
       <span class="tag tag-green">送保單</span>
-      <div class="cmd-example"><b>範例：</b>新增銷售 王小明 0912345678 已聯繫</div>
-      <div class="tip">💡 電話可以不填，直接輸入「新增銷售 王小明」也可以</div>
     </div>
     <div class="cmd-item">
       <div class="cmd-code">更新銷售 ID 階段</div>
-      <div class="cmd-desc">更新銷售追蹤的進行階段，ID 在銷售列表卡片上可以看到（格式 B001）</div>
+      <div class="cmd-desc">更新銷售追蹤的進行階段，ID 在列表卡片上可以看到（格式 B001）</div>
       <div class="cmd-example"><b>範例：</b>更新銷售 B001 建議書</div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title"><span>➕</span> 新增準增追蹤</div>
+    <div class="section-title"><span>➕</span> 新增增員追蹤</div>
     <div class="cmd-item">
-      <div class="cmd-code">新增準增 姓名 電話 階段</div>
-      <div class="cmd-desc">新增一位準增員到增員追蹤名單</div>
+      <div class="cmd-code">新增增員</div>
+      <div class="cmd-desc">Bot 引導輸入姓名和電話，自動新增到增員追蹤</div>
       <div style="margin-top:8px;font-size:12px;color:#5F5E5A;margin-bottom:4px;">可用階段：</div>
       <span class="tag tag-green">已聯繫</span>
       <span class="tag tag-green">約聊聊</span>
-      <span class="tag tag-green">約簽約</span>
-      <div class="cmd-example"><b>範例：</b>新增準增 陳大明 0912345678 已聯繫</div>
+      <span class="tag tag-green">約報聘</span>
     </div>
     <div class="cmd-item">
       <div class="cmd-code">更新準增 ID 階段</div>
-      <div class="cmd-desc">更新準增員的跟進階段，ID 格式為 R001</div>
+      <div class="cmd-desc">更新增員追蹤的跟進階段，ID 格式為 R001</div>
       <div class="cmd-example"><b>範例：</b>更新準增 R001 約聊聊</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span>➕</span> 新增新件追蹤</div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增新件</div>
+      <div class="cmd-desc">Bot 引導輸入姓名和保險公司，自動新增到新件追蹤</div>
+      <div style="margin-top:8px;font-size:12px;color:#5F5E5A;margin-bottom:4px;">可用階段：</div>
+      <span class="tag tag-blue">核保中</span>
+      <span class="tag" style="background:#FFF3E0;color:#E65100;">照會中</span>
+      <span class="tag tag-green">發單中</span>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">更新新件 ID 階段</div>
+      <div class="cmd-desc">更新新件追蹤的進度階段，ID 格式為 N001</div>
+      <div class="cmd-example"><b>範例：</b>更新新件 N001 發單中</div>
     </div>
   </div>
 
@@ -229,28 +284,56 @@
   <div class="section">
     <div class="section-title"><span>📝</span> 完整指令列表</div>
     <div class="cmd-item">
-      <div class="cmd-code">查詢 姓名</div>
-      <div class="cmd-desc">查看客戶資料、保單、信用卡</div>
+      <div class="cmd-code">行程 / 本周行程 / 本月行程</div>
+      <div class="cmd-desc">查看今日／本週／本月行程</div>
     </div>
     <div class="cmd-item">
-      <div class="cmd-code">進度 姓名</div>
-      <div class="cmd-desc">查看客戶保服案件進度</div>
+      <div class="cmd-code">新增行程</div>
+      <div class="cmd-desc">新增一筆行程（對話框引導）</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">待辦</div>
+      <div class="cmd-desc">顯示所有待辦彙整</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增新件 / 新件</div>
+      <div class="cmd-desc">新增／查看新件追蹤</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增銷售 / 銷售</div>
+      <div class="cmd-desc">新增／查看銷售追蹤</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增增員 / 增員</div>
+      <div class="cmd-desc">新增／查看增員追蹤</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">壽險</div>
+      <div class="cmd-desc">今日壽星 + 保單周年名單</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">查詢</div>
+      <div class="cmd-desc">查看客戶資料、保單、信用卡（對話框輸入姓名）</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增保服 / 保服</div>
+      <div class="cmd-desc">新增／查看保服案件</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">新增卡片 / 刪除卡片</div>
+      <div class="cmd-desc">新增／刪除客戶信用卡（對話框引導）</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">產險</div>
+      <div class="cmd-desc">產險60天內到期卡片</div>
     </div>
     <div class="cmd-item">
       <div class="cmd-code">早報</div>
       <div class="cmd-desc">手動觸發今日早報（每天 8:00 自動推播）</div>
     </div>
     <div class="cmd-item">
-      <div class="cmd-code">壽險 / 產險 / 保服 / 銷售 / 準增 / 待辦</div>
-      <div class="cmd-desc">各功能列表，同選單按鈕</div>
-    </div>
-    <div class="cmd-item">
-      <div class="cmd-code">新增銷售 姓名 電話 階段</div>
-      <div class="cmd-desc">新增銷售追蹤，階段：已聯繫／建議書／約簽約／送保單</div>
-    </div>
-    <div class="cmd-item">
-      <div class="cmd-code">新增準增 姓名 電話 階段</div>
-      <div class="cmd-desc">新增準增追蹤，階段：已聯繫／約聊聊／約簽約</div>
+      <div class="cmd-code">更新新件 ID 階段</div>
+      <div class="cmd-desc">更新新件進度，例：更新新件 N001 發單中</div>
     </div>
     <div class="cmd-item">
       <div class="cmd-code">更新銷售 ID 階段</div>
@@ -258,28 +341,20 @@
     </div>
     <div class="cmd-item">
       <div class="cmd-code">更新準增 ID 階段</div>
-      <div class="cmd-desc">更新準增追蹤階段，例：更新準增 R001 約聊聊</div>
-    </div>
-    <div class="cmd-item">
-      <div class="cmd-code">新增卡片 姓名 銀行 卡號前4碼 效期</div>
-      <div class="cmd-desc">新增客戶信用卡，例：新增卡片 王小明 國泰 5678 12/27</div>
-    </div>
-    <div class="cmd-item">
-      <div class="cmd-code">刪除卡片 姓名 銀行 卡號前4碼</div>
-      <div class="cmd-desc">刪除客戶信用卡</div>
-    </div>
-    <div class="cmd-item">
-      <div class="cmd-code">使用說明</div>
-      <div class="cmd-desc">顯示本頁面連結</div>
+      <div class="cmd-desc">更新增員追蹤階段，例：更新準增 R001 約聊聊</div>
     </div>
     <div class="cmd-item">
       <div class="cmd-code">指令</div>
       <div class="cmd-desc">顯示精簡指令列表卡片</div>
     </div>
+    <div class="cmd-item">
+      <div class="cmd-code">使用說明</div>
+      <div class="cmd-desc">顯示本頁面連結</div>
+    </div>
   </div>
 
   <div style="text-align:center;font-size:12px;color:#888780;padding-top:8px;">
-    保險業務發展小幫手 v1.0.0 · 如有問題請聯絡 Wayne
+    保險業務發展小幫手 v1.5.0 · 如有問題請聯絡 Wayne
   </div>
 
 </div>
