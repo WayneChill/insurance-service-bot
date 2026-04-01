@@ -172,11 +172,16 @@ def handle_message(event):
         parts = text.split()
         if len(parts) >= 4:
             del _pending[user_id]
-            c_name, c_bank, c_num, c_exp = parts[0], parts[1], parts[2], parts[3]
+            c_name, c_bank, c_num = parts[0], parts[1], parts[2]
+            c_exp_raw = parts[3]
+            # 效期：4碼數字 1031 → 10/31，其餘原樣保留
+            c_exp = c_exp_raw
+            if len(c_exp_raw) == 4 and c_exp_raw.isdigit():
+                c_exp = f"{c_exp_raw[:2]}/{c_exp_raw[2:]}"
             get_db().add_card(c_name, c_bank, c_num, c_exp)
             reply = _t(f"✅ 已新增信用卡\n姓名：{c_name}\n銀行：{c_bank}\n卡號：{c_num}\n效期：{c_exp}")
         else:
-            reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼 效期\n例如：王小明 國泰 1234 2026/12")
+            reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼 效期\n例如：王小明 國泰 1234 1031")
 
     elif pending == "刪除卡片":
         parts = text.split()
@@ -184,7 +189,7 @@ def handle_message(event):
             del _pending[user_id]
             c_name, c_bank, c_num = parts[0], parts[1], parts[2]
             ok = get_db().delete_card(c_name, c_bank, c_num)
-            reply = _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num}" if ok else "❌ 找不到該信用卡")
+            reply = _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num}" if ok else "❌ 找不到該信用卡\n請確認姓名、銀行、卡號前4碼是否與新增時一致")
         else:
             reply = _t("❌ 格式不符，請輸入：\n姓名 銀行 卡號前4碼\n例如：王小明 國泰 1234")
 
@@ -735,7 +740,8 @@ def _parse_command(text: str) -> dict:
         c_name   = parts[1]
         c_bank   = parts[2]
         c_num    = parts[3]
-        c_exp    = parts[4]
+        c_exp_raw = parts[4]
+        c_exp    = f"{c_exp_raw[:2]}/{c_exp_raw[2:]}" if len(c_exp_raw) == 4 and c_exp_raw.isdigit() else c_exp_raw
         c_policy = parts[5] if len(parts) >= 6 else ""
         get_db().add_card(c_name, c_bank, c_num, c_exp, c_policy)
         note = f"（指定保單：{c_policy}）" if c_policy else "（所有保單）"
@@ -754,7 +760,7 @@ def _parse_command(text: str) -> dict:
         ok     = get_db().delete_card(c_name, c_bank, c_num)
         if ok:
             return _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num} 的信用卡")
-        return _t("❌ 找不到該信用卡")
+        return _t("❌ 找不到該信用卡\n請確認姓名、銀行、卡號前4碼是否與新增時一致")
 
     else:
         return _t("❓ 看不懂指令，輸入「指令」查看所有指令")

@@ -163,7 +163,9 @@ class SheetsDB:
     def delete_card(self, name: str, bank: str, card_num: str) -> bool:
         ws = self._ws(WS_CARDS)
         for i, r in enumerate(ws.get_all_records(), start=2):
-            if r.get("姓名") == name and r.get("銀行名") == bank and r.get("卡號前4碼") == card_num:
+            if (str(r.get("姓名", "")).strip() == name.strip() and
+                str(r.get("銀行名", "")).strip() == bank.strip() and
+                str(r.get("卡號前4碼", "")).strip() == card_num.strip()):
                 ws.delete_rows(i)
                 return True
         return False
