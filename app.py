@@ -440,7 +440,7 @@ def _parse_command(text: str) -> dict:
                 pid = str(row["保單號碼"]).strip()
                 cur = statuses.get(pid, {}).get("status", "")
                 if cur not in skip:
-                    urgent_list.append(f"▪️ {row['被保姓名']} 倒數{int(row['剩餘天數'])}天")
+                    urgent_list.append(f"▪️ {str(row['被保姓名']).strip().replace(chr(10), '')} 倒數{int(row['剩餘天數'])}天")
 
             # 保服未完成
             cases = get_db().get_all_pending_cases()
