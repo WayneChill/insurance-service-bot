@@ -103,6 +103,78 @@ def _push_text(token: str, user_id: str, text: str):
     urllib.request.urlopen(req)
 
 
+# ── 晚間待辦任務 ──────────────────────────────────────────
+def run_evening(db):
+    """每日 20:00 台灣時間執行：推送晚間待辦"""
+    print(f"[排程] 開始晚間待辦 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+    user_id = os.environ.get("LINE_USER_ID", "")
+    if not token or not user_id:
+        print("[排程] 缺少 LINE 設定，跳過")
+        return
+
+    try:
+        today = datetime.now().strftime("%m/%d")
+        lines = [f"🌙 {today} 晚間待辦提醒", ""]
+
+        # 產險急件
+        from excel_reader import get_property_daily_stats
+        prop_statuses = db.get_property_status()
+        prop_counts = get_property_daily_stats(prop_statuses)
+        urgent_list = [k for k,v in prop_statuses.items() if v.get("status") == "急件"]
+        if urgent_list:
+            lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
+            for name in urgent_list[:5]:
+                lines.append(f"  ■ {name}")
+            lines.append("")
+
+        # 新件追蹤
+        newcase_list = [r for r in db.get_newcase_list() if r.get("階段") != "已完成"]
+        if newcase_list:
+            lines.append(f"📋 新件追蹤（{len(newcase_list)} 件）")
+            for r in newcase_list[:5]:
+                lines.append(f"  ■ {r.get('姓名','')} {r.get('保險公司','')} [{r.get('階段','')}]")
+            if len(newcase_list) > 5:
+                lines.append(f"  （還有 {len(newcase_list)-5} 件...）")
+            lines.append("")
+
+        # 保服未完成
+        case_list = db.get_all_pending_cases()
+        if case_list:
+            lines.append(f"📄 保服未完成（{len(case_list)} 件）")
+            for r in case_list[:5]:
+                lines.append(f"  ■ {r.get('客戶姓名','')} {r.get('服務項目','')} [{r.get('狀態','')}]")
+            if len(case_list) > 5:
+                lines.append(f"  （還有 {len(case_list)-5} 件...）")
+            lines.append("")
+
+        # 銷售待跟進
+        biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成"]]
+        if biz_list:
+            lines.append(f"💼 銷售待跟進（{len(biz_list)} 組）")
+            for r in biz_list[:3]:
+                lines.append(f"  ■ {r.get('姓名','')} [{r.get('階段','')}]")
+            lines.append("")
+
+        # 增員待跟進
+        recruit_list = [r for r in db.get_recruit_list() if r.get("階段") not in ["約報聘", "已完成"]]
+        if recruit_list:
+            lines.append(f"👥 準增待跟進（{len(recruit_list)} 組）")
+            for r in recruit_list[:3]:
+                lines.append(f"  ■ {r.get('姓名','')} [{r.get('階段','')}]")
+        else:
+            lines.append("👥 準增待跟進（0 組）")
+            lines.append("  ■ 無待跟進")
+
+        msg = "\n".join(lines)
+        _push_text(token, user_id, msg)
+        print("[排程] 晚間待辦發送成功")
+
+    except Exception as e:
+        import traceback
+        print(f"[排程] 晚間待辦失敗：{e}")
+        traceback.print_exc()
+      
 # ── 主排程任務 ────────────────────────────────────────────
 
 def run_daily(db):
@@ -132,6 +204,7 @@ def start_scheduler(db):
     scheduler = BackgroundScheduler(timezone="UTC")
     # UTC 00:00 = 台灣時間 08:00
     scheduler.add_job(run_daily, "cron", hour=0, minute=0, args=[db])
+    scheduler.add_job(run_evening, "cron", hour=12, minute=0, args=[db])
     scheduler.start()
     print("[排程] APScheduler 已啟動，每日 UTC 00:00 執行")
     return scheduler
