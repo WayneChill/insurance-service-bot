@@ -118,15 +118,49 @@ def run_evening(db):
         lines = [f"🌙 {today} 晚間待辦提醒", ""]
 
         # 產險急件
-        from excel_reader import get_property_daily_stats
-        prop_statuses = db.get_property_status()
-        prop_counts = get_property_daily_stats(prop_statuses)
-        urgent_list = [k for k,v in prop_statuses.items() if v.get("status") == "急件"]
-        if urgent_list:
-            lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
-            for name in urgent_list[:5]:
-                lines.append(f"  ■ {name}")
-            lines.append("")
+        try:
+            from excel_reader import get_property_daily_stats
+            import pandas as pd
+            from excel_reader import download_excel
+            from datetime import datetime as _dt
+            buf = download_excel("42004.xlsx")
+            df = pd.read_excel(buf, header=3)
+            df.columns = df.columns.str.strip()
+            def _roc(v):
+                try:
+                    s = str(v).strip()
+                    if len(s) == 7:
+                        y, rest = int(s[:3]) + 1911, s[3:]
+                        return pd.Timestamp(f"{y}-{rest[:2]}-{rest[4:]}")
+                except Exception:
+                    pass
+                return pd.NaT
+            df["到期日"] = df["保險迄日"].apply(_roc)
+            today_ts = pd.Timestamp(_dt.today().date())
+            df["剩餘天數"] = (df["到期日"] - today_ts).dt.days
+            prop_statuses = db.get_property_status()
+            skip = {"續保完成", "不續保"}
+            urgent_rows = df[
+                df["剩餘天數"].notna() &
+                df["剩餘天數"].between(0, 10) &
+                df["狀態"].astype(str).str.contains("正常")
+            ]
+            urgent_list = []
+            for _, row in urgent_rows.iterrows():
+                pid = str(row["保單號碼"]).strip()
+                cur = prop_statuses.get(pid, {}).get("status", "")
+                if cur not in skip:
+                    name = str(row["被保姓名"]).strip().replace("\n", "")
+                    urgent_list.append(f"  ■ {name} 倒數{int(row['剩餘天數'])}天")
+            if urgent_list:
+                lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
+                for u in urgent_list[:5]:
+                    lines.append(u)
+                lines.append("")
+        except Exception as e:
+            import traceback
+            print(f"[排程] 產險急件讀取失敗：{e}", flush=True)
+            traceback.print_exc()
 
         # 新件追蹤
         newcase_list = [r for r in db.get_newcase_list() if r.get("階段") != "已完成"]
@@ -149,7 +183,7 @@ def run_evening(db):
             lines.append("")
 
         # 銷售待跟進
-        biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成"]]
+        biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成", "已結案"]]
         if biz_list:
             lines.append(f"💼 銷售待跟進（{len(biz_list)} 組）")
             for r in biz_list[:3]:
@@ -157,7 +191,7 @@ def run_evening(db):
             lines.append("")
 
         # 增員待跟進
-        recruit_list = [r for r in db.get_recruit_list() if r.get("階段") not in ["約報聘", "已完成"]]
+        recruit_list = [r for r in db.get_recruit_list() if r.get("階段") not in ["約報聘", "已完成", "已結案"]]
         if recruit_list:
             lines.append(f"👥 準增待跟進（{len(recruit_list)} 組）")
             for r in recruit_list[:3]:
