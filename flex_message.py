@@ -584,8 +584,13 @@ def build_life_detail_card(detail: dict) -> dict:
                 policy_rows.append({
                     "type": "box", "layout": "horizontal", "spacing": "sm",
                     "contents": [
-                        {"type": "text", "text": f"{a['company']}  {a['policy_num']}",
-                         "size": "md", "color": "#888780", "flex": 3},
+                        {"type": "box", "layout": "vertical", "flex": 3,
+                         "contents": [
+                             {"type": "text", "text": a["company"],
+                              "size": "sm", "color": "#888780", "wrap": True},
+                             {"type": "text", "text": a["policy_num"],
+                              "size": "sm", "color": "#888780", "wrap": True},
+                         ]},
                         {"type": "text", "text": f"第{a['years']}年",
                          "size": "md", "color": "#FF6B6B", "align": "end", "flex": 2},
                     ]
