@@ -166,20 +166,16 @@ def run_evening(db):
         newcase_list = [r for r in db.get_newcase_list() if r.get("階段") != "已完成"]
         if newcase_list:
             lines.append(f"📋 新件追蹤（{len(newcase_list)} 件）")
-            for r in newcase_list[:5]:
+            for r in newcase_list:
                 lines.append(f"  ■ {r.get('姓名','')} {r.get('保險公司','')} [{r.get('階段','')}]")
-            if len(newcase_list) > 5:
-                lines.append(f"  （還有 {len(newcase_list)-5} 件...）")
             lines.append("")
 
         # 保服未完成
         case_list = db.get_all_pending_cases()
         if case_list:
             lines.append(f"📄 保服未完成（{len(case_list)} 件）")
-            for r in case_list[:5]:
+            for r in case_list:
                 lines.append(f"  ■ {r.get('客戶姓名','')} {r.get('服務項目','')} [{r.get('狀態','')}]")
-            if len(case_list) > 5:
-                lines.append(f"  （還有 {len(case_list)-5} 件...）")
             lines.append("")
 
         # 銷售待跟進
