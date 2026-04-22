@@ -49,8 +49,6 @@ app      = Flask(__name__)
 line_bot = LineBotApi(os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
 handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
-# ── 對話暫存（單人 Bot 用記憶體狀態）────────────────────
-_pending: dict = {}   # user_id → pending action name
 
 # ── DB（啟動時背景初始化，確保排程器能準時執行）─────────
 _db = None
@@ -107,12 +105,12 @@ def handle_message(event):
         "行程","本周行程","本月行程","新增行程",
     }
     first_word = text.split()[0] if text.split() else ""
-    if first_word in _COMMANDS and _pending.get(user_id):
-        del _pending[user_id]
+    if first_word in _COMMANDS and get_db().get_pending(user_id):
+        get_db().del_pending(user_id)
 
-    pending = _pending.get(user_id)
+    pending = get_db().get_pending(user_id)
     if pending == "查詢":
-        del _pending[user_id]
+        get_db().del_pending(user_id)
         name     = text.strip()
         clients  = search_client(name)
         if not clients:
@@ -123,7 +121,7 @@ def handle_message(event):
             reply    = _f(f"客戶資料：{name}", contents)
 
     elif pending == "進度":
-        del _pending[user_id]
+        get_db().del_pending(user_id)
         name     = text.strip()
         cases    = get_db().get_cases(name)
         contents = build_cases_card(name, cases)
@@ -132,7 +130,7 @@ def handle_message(event):
     elif pending == "新增新件":
         parts = text.split()
         if len(parts) >= 2:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             name     = parts[0]
             company  = " ".join(parts[1:])
             stage    = "核保中"
@@ -145,7 +143,7 @@ def handle_message(event):
     elif pending == "新增銷售":
         parts = text.split()
         if len(parts) >= 1:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             name     = parts[0]
             phone    = parts[1] if len(parts) >= 2 else ""
             stage    = "已聯繫"
@@ -158,7 +156,7 @@ def handle_message(event):
     elif pending == "新增增員":
         parts = text.split()
         if len(parts) >= 1:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             name     = parts[0]
             phone    = parts[1] if len(parts) >= 2 else ""
             stage    = "已聯繫"
@@ -171,7 +169,7 @@ def handle_message(event):
     elif pending == "新增卡片":
         parts = text.split()
         if len(parts) >= 4:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             c_name, c_bank, c_num = parts[0], parts[1], parts[2]
             c_exp_raw = parts[3]
             # 效期：4碼數字 1031 → 10/31，其餘原樣保留
@@ -186,7 +184,7 @@ def handle_message(event):
     elif pending == "刪除卡片":
         parts = text.split()
         if len(parts) >= 3:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             c_name, c_bank, c_num = parts[0], parts[1], parts[2]
             ok = get_db().delete_card(c_name, c_bank, c_num)
             reply = _t(f"✅ 已刪除「{c_name}」{c_bank} {c_num}" if ok else "❌ 找不到該信用卡\n請確認姓名、銀行、卡號前4碼是否與新增時一致")
@@ -196,7 +194,7 @@ def handle_message(event):
     elif pending == "新增行程":
         parts = text.split()
         if len(parts) >= 4:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             date_raw = parts[0]
             time_raw = parts[1]
             stype    = parts[2]
@@ -222,7 +220,7 @@ def handle_message(event):
     elif pending == "新增保服":
         parts = text.split()
         if len(parts) >= 2:
-            del _pending[user_id]
+            get_db().del_pending(user_id)
             name     = parts[0]
             service  = " ".join(parts[1:])
             case_id  = get_db().add_case(name, service)
@@ -234,7 +232,7 @@ def handle_message(event):
     else:
         reply = _parse_command(text)
         if reply["type"] == "pending":
-            _pending[user_id] = reply["action"]
+            get_db().set_pending(user_id, reply["action"])
             reply = _t(reply["text"])
 
     if reply["type"] == "flex":
@@ -592,7 +590,7 @@ def _parse_command(text: str) -> dict:
     # 新增新件 <姓名> <保險公司>
     elif cmd == "新增新件" and len(parts) >= 3:
         name    = parts[1]
-        company = parts[2]
+        company = " ".join(parts[2:])
         stage   = parts[3] if len(parts) >= 4 else "核保中"
         rid     = get_db().add_newcase(name, company, stage)
         contents = build_newcase_single_card(rid, name, company, stage)

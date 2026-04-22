@@ -25,6 +25,7 @@ WS_BIZ      = "業務追蹤"
 WS_RECRUIT  = "增員追蹤"
 WS_NEWCASE  = "新契約追蹤"
 WS_SCHEDULE = "行程"
+WS_PENDING  = "待確認狀態"
 
 # 業務 / 增員各階段
 BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
@@ -100,6 +101,10 @@ class SheetsDB:
         if WS_SCHEDULE not in existing:
             ws = self.spreadsheet.add_worksheet(WS_SCHEDULE, rows=1000, cols=8)
             ws.append_row(["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"])
+
+        if WS_PENDING not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_PENDING, rows=200, cols=3)
+            ws.append_row(["user_id", "action", "timestamp"])
 
     def _ws(self, name):
         return self.spreadsheet.worksheet(name)
@@ -361,6 +366,44 @@ class SheetsDB:
         except Exception as e:
             print(f"[WARN] 產險狀態讀取失敗: {e}")
             return {}
+
+    # ══════════════════════════════════════════════════════════
+    # 對話暫存（pending state，持久化取代 in-memory dict）
+    # ══════════════════════════════════════════════════════════
+    def get_pending(self, user_id: str):
+        """取得 pending action；超過10分鐘自動過期回傳 None"""
+        from datetime import datetime, timedelta
+        ws = self._ws(WS_PENDING)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("user_id") == user_id:
+                try:
+                    ts = datetime.strptime(r["timestamp"], "%Y/%m/%d %H:%M:%S")
+                    if datetime.now() - ts > timedelta(minutes=10):
+                        ws.delete_rows(i)
+                        return None
+                except Exception:
+                    pass
+                return r.get("action") or None
+        return None
+
+    def set_pending(self, user_id: str, action: str):
+        """設定 pending action（同一 user_id 直接覆蓋）"""
+        from datetime import datetime
+        ws = self._ws(WS_PENDING)
+        ts = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("user_id") == user_id:
+                ws.update(f"A{i}:C{i}", [[user_id, action, ts]])
+                return
+        ws.append_row([user_id, action, ts])
+
+    def del_pending(self, user_id: str):
+        """清除 pending action"""
+        ws = self._ws(WS_PENDING)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if r.get("user_id") == user_id:
+                ws.delete_rows(i)
+                return
 
     def write_property_status(self, policy_id: str, name: str, label: str):
         ws = self.spreadsheet.sheet1
