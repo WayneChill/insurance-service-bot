@@ -185,15 +185,12 @@ def run_evening(db):
             lines.append("")
 
         # 扣款失敗
-        try:
-            payment_list = db.get_payment_failures()
-            if payment_list:
-                lines.append(f"💳 扣款失敗（{len(payment_list)} 件）")
-                for r in payment_list:
-                    lines.append(f"  ■ {r.get('要保人','')} {r.get('公司','')} [{r.get('類別','')}]")
-                lines.append("")
-        except Exception as e:
-            print(f"[排程] 扣款失敗讀取失敗：{e}", flush=True)
+        payment_list = [r for r in db.get_payment_failures() if r.get("狀態") != "已完成"]
+        if payment_list:
+            lines.append(f"💳 扣款失敗（{len(payment_list)} 件）")
+            for r in payment_list:
+                lines.append(f"  ■ {r.get('要保人','')} {r.get('公司','')} [{r.get('類別','')}]")
+            lines.append("")
 
         # 銷售待跟進
         biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成", "已結案"]]

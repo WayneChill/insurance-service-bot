@@ -745,20 +745,16 @@ def _payment_item(r: dict) -> dict:
     contents = [
         {"type": "box", "layout": "horizontal",
          "contents": [
-             {"type": "box", "layout": "vertical", "flex": 1,
-              "contents": [
-                  {"type": "text", "text": f"{holder}  {company}",
-                   "size": "xl", "weight": "bold", "color": "#2C2C2A", "wrap": True},
-                  {"type": "text", "text": policy, "size": "md", "color": "#B4B2A9"},
-              ]},
+             {"type": "text", "text": holder,
+              "size": "xl", "weight": "bold", "color": "#2C2C2A", "wrap": True, "flex": 1},
              {"type": "text", "text": f"{emoji} {status}",
               "size": "lg", "color": color, "align": "end", "flex": 0, "gravity": "center"},
          ]},
-        {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "xs",
-         "contents": [
-             {"type": "text", "text": f"類別：{category}", "size": "md", "color": "#5F5E5A"},
-             {"type": "text", "text": f"轉帳日：{t_date}　保費：{premium}", "size": "md", "color": "#5F5E5A", "wrap": True},
-         ]},
+        {"type": "text", "text": company, "size": "md", "color": "#5F5E5A"},
+        {"type": "text", "text": policy,  "size": "md", "color": "#B4B2A9"},
+        {"type": "text", "text": f"類別：{category}",  "size": "md", "color": "#5F5E5A"},
+        {"type": "text", "text": f"轉帳日：{t_date}",  "size": "md", "color": "#5F5E5A"},
+        {"type": "text", "text": f"保費：{premium}",   "size": "md", "color": "#5F5E5A", "wrap": True},
     ]
     if note:
         contents.append({
