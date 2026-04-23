@@ -35,8 +35,11 @@ def _build_morning_report(db) -> str:
     # 新契約區
     newcase_counts = db.count_newcase_by_stage()
 
-    # 扣款失敗區
+    # 保費區（扣款失敗各狀態統計）
     payment_failures = db.get_payment_failures()
+    pay_pending  = sum(1 for r in payment_failures if r.get("狀態", "") == "待處理")
+    pay_notified = sum(1 for r in payment_failures if r.get("狀態", "") == "已聯絡")
+    pay_sent     = sum(1 for r in payment_failures if r.get("狀態", "") == "已送出")
 
     # 產險區（需要 42004.xlsx）
     prop_statuses = db.get_property_status()
@@ -84,7 +87,10 @@ def _build_morning_report(db) -> str:
         f"▪️ 已送出：{case_counts.get('已送出', 0)} 件",
         f"▪️ 核對中：{case_counts.get('核對中', 0)} 件",
         "",
-        f"💳 扣款失敗：{len(payment_failures)} 件",
+        "💳 保費區",
+        f"▪️ 待處理：{pay_pending} 件",
+        f"▪️ 已聯絡：{pay_notified} 件",
+        f"▪️ 已送出：{pay_sent} 件",
         "",
         "💼 銷售區",
         f"▪️ 已聯繫：{biz_counts.get('已聯繫', 0)} 組",
