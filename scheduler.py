@@ -6,6 +6,7 @@ scheduler.py ── APScheduler 排程
 import json
 import urllib.request
 import os
+import time
 from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -217,8 +218,22 @@ def run_daily(db):
         print("[排程] 缺少 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_USER_ID，跳過")
         return
 
+    report = None
+    for attempt in range(1, 4):
+        try:
+            report = _build_morning_report(db)
+            break
+        except Exception as e:
+            import traceback
+            print(f"[排程] 早報建立失敗（第 {attempt} 次）：{e}")
+            traceback.print_exc()
+            if attempt < 3:
+                time.sleep(30)
+            else:
+                print("[排程] 早報建立連續失敗 3 次，放棄發送")
+                return
+
     try:
-        report = _build_morning_report(db)
         _push_text(token, user_id, report)
         print("[排程] 每日早報發送成功")
     except Exception as e:
