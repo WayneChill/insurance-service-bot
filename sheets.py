@@ -26,6 +26,7 @@ WS_RECRUIT  = "增員追蹤"
 WS_NEWCASE  = "新契約追蹤"
 WS_SCHEDULE = "行程"
 WS_PENDING  = "待確認狀態"
+WS_PAYMENT  = "扣款失敗"
 
 # 業務 / 增員各階段
 BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
@@ -105,6 +106,10 @@ class SheetsDB:
         if WS_PENDING not in existing:
             ws = self.spreadsheet.add_worksheet(WS_PENDING, rows=200, cols=3)
             ws.append_row(["user_id", "action", "timestamp"])
+
+        if WS_PAYMENT not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_PAYMENT, rows=1000, cols=10)
+            ws.append_row(["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "保費", "狀態", "備註", "更新時間"])
 
     def _ws(self, name):
         return self.spreadsheet.worksheet(name)
@@ -404,6 +409,31 @@ class SheetsDB:
             if r.get("user_id") == user_id:
                 ws.delete_rows(i)
                 return
+
+    # ══════════════════════════════════════════════════════════
+    # 扣款失敗追蹤
+    # ══════════════════════════════════════════════════════════
+    def get_payment_failures(self) -> list:
+        ws = self._ws(WS_PAYMENT)
+        return [r for r in ws.get_all_records() if r.get("狀態", "") != "已完成"]
+
+    def update_payment_status(self, row_id: str, status: str) -> bool:
+        ws = self._ws(WS_PAYMENT)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if str(r.get("ID", "")).strip() == row_id:
+                ws.update_cell(i, 8, status)
+                ws.update_cell(i, 10, _now())
+                return True
+        return False
+
+    def add_payment_note(self, row_id: str, note: str) -> str:
+        ws = self._ws(WS_PAYMENT)
+        for i, r in enumerate(ws.get_all_records(), start=2):
+            if str(r.get("ID", "")).strip() == row_id:
+                ws.update_cell(i, 9, note)
+                ws.update_cell(i, 10, _now())
+                return r.get("要保人", "")
+        return ""
 
     def write_property_status(self, policy_id: str, name: str, label: str):
         ws = self.spreadsheet.sheet1

@@ -41,6 +41,7 @@ from flex_message import (
     build_client_card, build_cases_card, build_case_created_card,
     build_biz_list_card, build_biz_single_card,
     build_newcase_list_card, build_newcase_single_card,
+    build_payment_list_card,
     build_help_message
 )
 from scheduler import start_scheduler
@@ -102,7 +103,7 @@ def handle_message(event):
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
         "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
-        "行程","本周行程","本月行程","新增行程",
+        "行程","本周行程","本月行程","新增行程","扣款失敗",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and get_db().get_pending(user_id):
@@ -293,6 +294,13 @@ def handle_postback(event):
         get_db().write_property_status(policy_id, pname, label)
         _reply_text(event, _REPLIES[action])
 
+    # ── 扣款失敗狀態更新
+    elif action == "pay_update":
+        row_id = unquote(params.get("id", ""))
+        status = unquote(params.get("status", ""))
+        ok     = get_db().update_payment_status(row_id, status)
+        _reply_text(event, f"✅ {row_id} 已更新為「{status}」" if ok else f"❌ 找不到記錄 {row_id}")
+
     # ── 刪除行程
     elif action == "del_schedule":
         sid = unquote(params.get("id", ""))
@@ -404,7 +412,13 @@ def _parse_command(text: str) -> dict:
             return _t("✅ 目前沒有待處理的保服案件")
         contents = build_cases_card("保服案件", pending)
         return _f("保服案件", contents)
-        
+
+    # 扣款失敗
+    elif cmd == "扣款失敗":
+        records  = get_db().get_payment_failures()
+        contents = build_payment_list_card(records)
+        return _f("扣款失敗追蹤", contents)
+
  # 待辦（今日彙整）
     elif cmd == "待辦":
         try:
@@ -708,6 +722,8 @@ def _parse_command(text: str) -> dict:
                 name = get_db().update_newcase_note(rid, note)
             elif prefix == "C":
                 name = get_db().update_case_note(rid, note)
+            elif prefix == "P":
+                name = get_db().add_payment_note(rid, note)
             else:
                 name = ""
             return _t(f"✅ {rid} 備註已記錄：{note}" if name else f"❌ 找不到 {rid}")

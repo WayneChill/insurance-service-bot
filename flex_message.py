@@ -28,6 +28,24 @@ PROP_STATUS_COLOR = {"已報價": "#3B82F6", "延後3天": "#F59E0B", "延後7�
 
 TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
+# 扣款失敗狀態
+PAYMENT_STATUS_COLOR = {
+    "待處理": "#888780",
+    "已通知": "#54A0FF",
+    "已聯絡": "#4DABF7",
+    "已送出": "#FFD43B",
+    "已完成": "#20C997",
+}
+PAYMENT_STATUS_EMOJI = {
+    "待處理": "⏰",
+    "已通知": "📢",
+    "已聯絡": "📞",
+    "已送出": "📤",
+    "已完成": "✅",
+}
+PAYMENT_UPDATE_BTNS   = ["已通知", "已聯絡", "已送出", "已完成"]
+PAYMENT_UPDATE_COLORS = ["#54A0FF", "#4DABF7", "#FFD43B", "#20C997"]
+
 # 業務 / 增員 / 新契約階段按鈕
 BIZ_STAGES_DEF      = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#1DD1A1"), ("已結案", "#FF9F43")]
 RECRUIT_STAGES_DEF  = [("已聯繫", "#54A0FF"), ("約聊聊", "#00D2D3"), ("約報聘", "#1DD1A1"), ("已結案", "#FF9F43")]
@@ -686,6 +704,93 @@ def build_property_card(row, current_status=None) -> dict:
                 _postback_btn("✅ 續保完成", pb("done"), "#20C997"),
             ]
         }
+    }
+
+
+# ══════════════════════════════════════════════════════════
+# 扣款失敗追蹤
+# ══════════════════════════════════════════════════════════
+
+def build_payment_list_card(records: list) -> dict:
+    items = [_payment_item(r) for r in records[:10]] if records else [
+        {"type": "text", "text": "目前沒有未完成的扣款失敗記錄", "size": "md", "color": "#888780"}
+    ]
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#FFEAEA",
+            "contents": [
+                {"type": "text", "text": "💳 扣款失敗追蹤", "weight": "bold", "size": "xxl", "color": "#C92A2A"},
+                {"type": "text", "text": f"未完成 {len(records)} 筆", "size": "md", "color": "#C92A2A"},
+            ]
+        },
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": items}
+    }
+
+
+def _payment_item(r: dict) -> dict:
+    row_id   = str(r.get("ID", "")).strip()
+    company  = str(r.get("公司", "")).strip() or "-"
+    holder   = str(r.get("要保人", "")).strip() or "-"
+    policy   = str(r.get("保單號碼", "")).strip() or "-"
+    category = str(r.get("類別", "")).strip() or "-"
+    t_date   = str(r.get("轉帳日", "")).strip() or "-"
+    premium  = str(r.get("保費", "")).strip() or "-"
+    status   = str(r.get("狀態", "待處理")).strip() or "待處理"
+    note     = str(r.get("備註", "")).strip()
+    color    = PAYMENT_STATUS_COLOR.get(status, "#888780")
+    emoji    = PAYMENT_STATUS_EMOJI.get(status, "⏰")
+    id_enc   = quote(row_id)
+
+    contents = [
+        {"type": "box", "layout": "horizontal",
+         "contents": [
+             {"type": "box", "layout": "vertical", "flex": 1,
+              "contents": [
+                  {"type": "text", "text": f"{company}  {holder}",
+                   "size": "xl", "weight": "bold", "color": "#2C2C2A", "wrap": True},
+                  {"type": "text", "text": policy, "size": "md", "color": "#B4B2A9"},
+              ]},
+             {"type": "text", "text": f"{emoji} {status}",
+              "size": "lg", "color": color, "align": "end", "flex": 0, "gravity": "center"},
+         ]},
+        {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "xs",
+         "contents": [
+             {"type": "text", "text": f"類別：{category}", "size": "md", "color": "#5F5E5A"},
+             {"type": "text", "text": f"轉帳日：{t_date}　保費：{premium}", "size": "md", "color": "#5F5E5A"},
+         ]},
+    ]
+    if note:
+        contents.append({
+            "type": "text", "text": f"📝 {note}",
+            "size": "md", "color": "#5F5E5A", "wrap": True, "margin": "xs"
+        })
+    contents.append({
+        "type": "box", "layout": "vertical", "spacing": "xs", "margin": "sm",
+        "contents": [
+            {"type": "box", "layout": "horizontal", "spacing": "xs",
+             "contents": [
+                 _postback_btn(PAYMENT_UPDATE_BTNS[0], f"action=pay_update&id={id_enc}&status={quote(PAYMENT_UPDATE_BTNS[0])}", PAYMENT_UPDATE_COLORS[0]),
+                 _postback_btn(PAYMENT_UPDATE_BTNS[1], f"action=pay_update&id={id_enc}&status={quote(PAYMENT_UPDATE_BTNS[1])}", PAYMENT_UPDATE_COLORS[1]),
+             ]},
+            {"type": "box", "layout": "horizontal", "spacing": "xs",
+             "contents": [
+                 _postback_btn(PAYMENT_UPDATE_BTNS[2], f"action=pay_update&id={id_enc}&status={quote(PAYMENT_UPDATE_BTNS[2])}", PAYMENT_UPDATE_COLORS[2]),
+                 _postback_btn(PAYMENT_UPDATE_BTNS[3], f"action=pay_update&id={id_enc}&status={quote(PAYMENT_UPDATE_BTNS[3])}", PAYMENT_UPDATE_COLORS[3]),
+             ]},
+        ]
+    })
+    contents.append({
+        "type": "button",
+        "action": {"type": "message", "label": "✏️ 紀錄", "text": f"記錄 {row_id}"},
+        "style": "secondary", "height": "sm", "margin": "sm"
+    })
+
+    return {
+        "type": "box", "layout": "vertical", "spacing": "xs",
+        "paddingAll": "10px", "backgroundColor": "#FFF5F5",
+        "cornerRadius": "8px", "margin": "sm",
+        "contents": contents
     }
 
 
