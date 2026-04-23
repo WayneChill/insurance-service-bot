@@ -30,7 +30,7 @@ TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
 # 扣款失敗狀態
 PAYMENT_STATUS_COLOR = {
-    "待處理": "#8C8C8C",
+    "待處理": "#4DABF7",
     "已通知": "#54A0FF",
     "已聯絡": "#FF8C00",
     "已送出": "#FFD43B",
@@ -44,7 +44,7 @@ PAYMENT_STATUS_EMOJI = {
     "已完成": "✅",
 }
 PAYMENT_UPDATE_BTNS   = ["待處理", "已聯絡", "已送出", "已完成"]
-PAYMENT_UPDATE_COLORS = ["#8C8C8C", "#FF8C00", "#FFD43B", "#20C997"]
+PAYMENT_UPDATE_COLORS = ["#4DABF7", "#FF8C00", "#FFD43B", "#20C997"]
 
 # 業務 / 增員 / 新契約階段按鈕
 BIZ_STAGES_DEF      = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#1DD1A1"), ("已結案", "#FF9F43")]
