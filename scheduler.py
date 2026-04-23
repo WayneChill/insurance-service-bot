@@ -84,7 +84,7 @@ def _build_morning_report(db) -> str:
         f"▪️ 已送出：{case_counts.get('已送出', 0)} 件",
         f"▪️ 核對中：{case_counts.get('核對中', 0)} 件",
         "",
-        f"💳 扣款失敗：{len(payment_failures)} 件待處理",
+        f"💳 扣款失敗：{len(payment_failures)} 件",
         "",
         "💼 銷售區",
         f"▪️ 已聯繫：{biz_counts.get('已聯繫', 0)} 組",
