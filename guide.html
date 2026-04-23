@@ -50,13 +50,15 @@
 
   .tip { background: #FAEEDA; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #633806; margin-top: 10px; }
   .tip b { color: #412402; }
+  .menu-item.red { background: #FFEAEA; }
+  .menu-item.red .name { color: #C92A2A; }
 </style>
 </head>
 <body>
 
 <div class="hero">
   <h1>保險業務發展小幫手</h1>
-  <p>完整使用說明 · v1.5.0</p>
+  <p>完整使用說明 · v1.6.0</p>
 </div>
 
 <div class="container">
@@ -93,7 +95,12 @@
       <div class="menu-item blue">
         <div class="icon">📌</div>
         <div class="name">待辦</div>
-        <div class="desc">今日所有待辦彙整：產險急件、保服未完成、銷售&增員待跟進</div>
+        <div class="desc">今日所有待辦彙整：產險急件、保服未完成、扣款失敗、銷售&增員待跟進</div>
+      </div>
+      <div class="menu-item red">
+        <div class="icon">💳</div>
+        <div class="name">扣款失敗</div>
+        <div class="desc">扣款失敗追蹤列表，可直接在卡片上更新狀態或記錄備註</div>
       </div>
       <div class="menu-item purple">
         <div class="icon">📅</div>
@@ -138,6 +145,11 @@
 ▪️ 已聯絡：_ 件
 ▪️ 已送出：_ 件
 ▪️ 核對中：_ 件
+
+💳 保費區
+▪️ 待處理：_ 件
+▪️ 已聯絡：_ 件
+▪️ 已送出：_ 件
 
 💼 銷售區
 ▪️ 已聯繫：_ 組
@@ -280,6 +292,35 @@
     </div>
   </div>
 
+  <!-- 扣款失敗追蹤 -->
+  <div class="section">
+    <div class="section-title"><span>💳</span> 扣款失敗追蹤</div>
+    <div class="cmd-item">
+      <div class="cmd-code">扣款失敗</div>
+      <div class="cmd-desc">顯示所有未完成（狀態非「已完成」）的扣款失敗記錄，每筆顯示：</div>
+      <div style="margin-top:8px;font-size:12px;color:#5F5E5A;">
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">要保人</span>
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">公司</span>
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">保單號碼</span>
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">類別</span>
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">轉帳日</span>
+        <span class="tag" style="background:#FFEAEA;color:#C92A2A;">保費</span>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#5F5E5A;margin-bottom:4px;">卡片底部狀態按鈕：</div>
+      <span class="tag tag-blue">待處理</span>
+      <span class="tag" style="background:#FFF3E0;color:#E65100;">已聯絡</span>
+      <span class="tag" style="background:#FFFBE6;color:#B7791F;">已送出</span>
+      <span class="tag tag-green">已完成</span>
+      <div class="tip">💡 點「✏️ 紀錄」按鈕後，輸入「記錄 P001 備註內容」即可記錄跟進備註，ID 格式為 P001、P002…</div>
+    </div>
+    <div class="cmd-item">
+      <div class="cmd-code">記錄 P001 備註內容</div>
+      <div class="cmd-desc">新增或更新扣款失敗記錄的跟進備註</div>
+      <div class="cmd-example"><b>範例：</b>記錄 P001 已重新提示客戶補繳</div>
+    </div>
+    <div class="tip">💡 資料來源為 Google Sheets「扣款失敗」工作表，欄位需包含：ID、公司、要保人、保單號碼、類別、轉帳日、保費、狀態、備註</div>
+  </div>
+
   <!-- 完整指令列表 -->
   <div class="section">
     <div class="section-title"><span>📝</span> 完整指令列表</div>
@@ -320,6 +361,10 @@
       <div class="cmd-desc">新增／查看保服案件</div>
     </div>
     <div class="cmd-item">
+      <div class="cmd-code">扣款失敗</div>
+      <div class="cmd-desc">查看扣款失敗追蹤列表（可更新狀態、記錄備註）</div>
+    </div>
+    <div class="cmd-item">
       <div class="cmd-code">新增卡片 / 刪除卡片</div>
       <div class="cmd-desc">新增／刪除客戶信用卡（對話框引導）</div>
     </div>
@@ -354,7 +399,7 @@
   </div>
 
   <div style="text-align:center;font-size:12px;color:#888780;padding-top:8px;">
-    保險業務發展小幫手 v1.5.0 · 如有問題請聯絡 Wayne
+    保險業務發展小幫手 v1.6.0 · 如有問題請聯絡 Wayne
   </div>
 
 </div>
