@@ -35,6 +35,9 @@ def _build_morning_report(db) -> str:
     # 新契約區
     newcase_counts = db.count_newcase_by_stage()
 
+    # 扣款失敗區
+    payment_failures = db.get_payment_failures()
+
     # 產險區（需要 42004.xlsx）
     prop_statuses = db.get_property_status()
     prop_counts   = get_property_daily_stats(prop_statuses)
@@ -80,6 +83,8 @@ def _build_morning_report(db) -> str:
         f"▪️ 已聯絡：{case_counts.get('已聯絡', 0)} 件",
         f"▪️ 已送出：{case_counts.get('已送出', 0)} 件",
         f"▪️ 核對中：{case_counts.get('核對中', 0)} 件",
+        "",
+        f"💳 扣款失敗：{len(payment_failures)} 件待處理",
         "",
         "💼 銷售區",
         f"▪️ 已聯繫：{biz_counts.get('已聯繫', 0)} 組",
@@ -178,6 +183,17 @@ def run_evening(db):
             for r in case_list:
                 lines.append(f"  ■ {r.get('客戶姓名','')} {r.get('服務項目','')} [{r.get('狀態','')}]")
             lines.append("")
+
+        # 扣款失敗
+        try:
+            payment_list = db.get_payment_failures()
+            if payment_list:
+                lines.append(f"💳 扣款失敗（{len(payment_list)} 件）")
+                for r in payment_list:
+                    lines.append(f"  ■ {r.get('要保人','')} {r.get('公司','')} [{r.get('類別','')}]")
+                lines.append("")
+        except Exception as e:
+            print(f"[排程] 扣款失敗讀取失敗：{e}", flush=True)
 
         # 銷售待跟進
         biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成", "已結案"]]

@@ -30,9 +30,9 @@ TYPE_COLOR = {"壽險": "#4DABF7", "產險": "#FF6B6B"}
 
 # 扣款失敗狀態
 PAYMENT_STATUS_COLOR = {
-    "待處理": "#888780",
+    "待處理": "#8C8C8C",
     "已通知": "#54A0FF",
-    "已聯絡": "#4DABF7",
+    "已聯絡": "#FF8C00",
     "已送出": "#FFD43B",
     "已完成": "#20C997",
 }
@@ -43,8 +43,8 @@ PAYMENT_STATUS_EMOJI = {
     "已送出": "📤",
     "已完成": "✅",
 }
-PAYMENT_UPDATE_BTNS   = ["已通知", "已聯絡", "已送出", "已完成"]
-PAYMENT_UPDATE_COLORS = ["#54A0FF", "#4DABF7", "#FFD43B", "#20C997"]
+PAYMENT_UPDATE_BTNS   = ["待處理", "已聯絡", "已送出", "已完成"]
+PAYMENT_UPDATE_COLORS = ["#8C8C8C", "#FF8C00", "#FFD43B", "#20C997"]
 
 # 業務 / 增員 / 新契約階段按鈕
 BIZ_STAGES_DEF      = [("已聯繫", "#54A0FF"), ("建議書", "#00D2D3"), ("約簽約", "#1DD1A1"), ("已結案", "#FF9F43")]
@@ -747,7 +747,7 @@ def _payment_item(r: dict) -> dict:
          "contents": [
              {"type": "box", "layout": "vertical", "flex": 1,
               "contents": [
-                  {"type": "text", "text": f"{company}  {holder}",
+                  {"type": "text", "text": f"{holder}  {company}",
                    "size": "xl", "weight": "bold", "color": "#2C2C2A", "wrap": True},
                   {"type": "text", "text": policy, "size": "md", "color": "#B4B2A9"},
               ]},
@@ -757,7 +757,7 @@ def _payment_item(r: dict) -> dict:
         {"type": "box", "layout": "vertical", "spacing": "xs", "margin": "xs",
          "contents": [
              {"type": "text", "text": f"類別：{category}", "size": "md", "color": "#5F5E5A"},
-             {"type": "text", "text": f"轉帳日：{t_date}　保費：{premium}", "size": "md", "color": "#5F5E5A"},
+             {"type": "text", "text": f"轉帳日：{t_date}　保費：{premium}", "size": "md", "color": "#5F5E5A", "wrap": True},
          ]},
     ]
     if note:
@@ -816,6 +816,7 @@ def build_help_message(pending_cases=None) -> dict:
         ("查詢",        "查看客戶資料和保單",              "查詢"),
         ("新增保服",    "新增保服案件",                    "新增保服"),
         ("保服",        "查看保服案件列表",                "保服"),
+        ("扣款失敗",    "查看扣款失敗追蹤",                "扣款失敗"),
         ("新增卡片",    "新增信用卡",                      "新增卡片"),
         ("刪除卡片",    "刪除信用卡",                      "刪除卡片"),
         ("產險",        "查看產險到期名單",                "產險"),
