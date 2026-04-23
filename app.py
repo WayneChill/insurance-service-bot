@@ -814,9 +814,9 @@ def verify_key():
     import gspread, base64, tempfile
     from datetime import datetime as _dt
     try:
-        body           = request.get_json(force=True) or {}
-        key            = body.get("key", "").strip()
-        channel_secret = body.get("channel_secret", "").strip()
+        body    = request.get_json(force=True) or {}
+        key     = body.get("key", "").strip()
+        user_id = body.get("user_id", "").strip()
         if not key:
             return jsonify({"valid": False, "message": "未提供金鑰"}), 400
 
@@ -836,11 +836,11 @@ def verify_key():
         for row in rows:
             if not row or row[0].strip() != key:
                 continue
-            # A=金鑰 B=用戶名稱 C=到期日 D=狀態 E=Channel Secret
-            user   = row[1] if len(row) > 1 else ""
-            expiry = row[2] if len(row) > 2 else ""
-            status = row[3] if len(row) > 3 else ""
-            secret = row[4].strip() if len(row) > 4 else ""
+            # A=金鑰 B=用戶名稱 C=到期日 D=狀態 E=LINE User ID
+            user           = row[1] if len(row) > 1 else ""
+            expiry         = row[2] if len(row) > 2 else ""
+            status         = row[3] if len(row) > 3 else ""
+            stored_user_id = row[4].strip() if len(row) > 4 else ""
 
             if status != "啟用":
                 return jsonify({"valid": False, "message": "金鑰已停用"})
@@ -849,8 +849,8 @@ def verify_key():
                     return jsonify({"valid": False, "message": "金鑰已過期"})
             except ValueError:
                 pass
-            if secret and channel_secret != secret:
-                return jsonify({"valid": False, "message": "金鑰與帳號不符"})
+            if stored_user_id and user_id != stored_user_id:
+                return jsonify({"valid": False, "message": "金鑰與 User ID 不符"})
             return jsonify({"valid": True, "user": user, "expiry": expiry})
 
         return jsonify({"valid": False, "message": "金鑰不存在"})
