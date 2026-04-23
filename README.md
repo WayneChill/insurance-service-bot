@@ -140,6 +140,18 @@ ngrok http 5000
 | 行程 | ID, 日期, 時間, 類型, 標題, 備註, 建立時間 | 行程管理 |
 | 待確認狀態 | user_id, action, timestamp | 對話暫存（10分鐘自動過期） |
 
+## 授權金鑰
+
+本系統需要授權金鑰才能啟動。金鑰綁定使用者的 **LINE User ID**，確保只有指定帳號可以使用。
+
+- 金鑰格式：`XXXX-XXXX-XXXX-XXXX`
+- 金鑰與 `LINE_USER_ID` 環境變數綁定，其他帳號即使拿到金鑰也無法使用
+- 取得金鑰前請先提供你的 LINE User ID 給 Wayne
+- 金鑰有使用期限，到期前請聯絡 Wayne 續期
+- 如更換 LINE 帳號導致 User ID 變更，需通知 Wayne 重新綁定
+
+驗證端點：`POST /verify-key`，body 傳入 `{ "key": "...", "user_id": "U..." }`
+
 ## 版本紀錄
 
 | 版本 | 日期 | 說明 |
