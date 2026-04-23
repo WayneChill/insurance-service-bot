@@ -457,6 +457,9 @@ def _parse_command(text: str) -> dict:
             # 保服未完成
             cases = get_db().get_all_pending_cases()
 
+            # 扣款失敗
+            payments = get_db().get_payment_failures()
+
             # 業務待跟進
             biz = [r for r in get_db().get_biz_list() if r.get("階段") in ["已聯繫", "建議書"]]
 
@@ -485,6 +488,13 @@ def _parse_command(text: str) -> dict:
             for c in cases[:5]:
                 lines.append(f"▪️ {c.get('客戶姓名','')} {c.get('服務項目','')} [{c.get('狀態','')}]")
             if not cases:
+                lines.append("▪️ 無待處理")
+
+            lines.append("")
+            lines.append(f"💳 扣款失敗（{len(payments)} 件）")
+            for p in payments[:5]:
+                lines.append(f"▪️ {p.get('要保人','')} {p.get('公司','')} [{p.get('類別','')}]")
+            if not payments:
                 lines.append("▪️ 無待處理")
 
             lines.append("")
