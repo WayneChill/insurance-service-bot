@@ -205,7 +205,8 @@ def build_case_created_card(case_id: str, name: str, service: str, policy: str =
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
             "contents": [
                 {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "xxl", "color": "#0F6E56"},
-                {"type": "text", "text": f"{name} · {service}", "size": "md", "color": "#0F6E56"},
+                {"type": "text", "text": name, "size": "md", "color": "#0F6E56"},
+                {"type": "text", "text": service, "size": "md", "color": "#0F6E56"},
             ]
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm",
@@ -219,10 +220,17 @@ def _case_item(c, name):
     emoji    = STATUS_EMOJI.get(status, "?")
     case_id  = c.get("案件ID", "")
     service  = c.get("服務項目", "")
+    policy   = str(c.get("保單號碼", "")).strip()
     created  = c.get("建立時間", "")
     client_n = c.get("客戶姓名", name)
     name_enc = quote(client_n)
     id_enc   = quote(case_id)
+
+    detail_rows = [
+        {"type": "text", "text": service, "size": "md", "color": "#5F5E5A"},
+    ]
+    if policy:
+        detail_rows.append({"type": "text", "text": policy, "size": "md", "color": "#B4B2A9"})
 
     return {
         "type": "box", "layout": "vertical", "spacing": "xs",
@@ -233,8 +241,10 @@ def _case_item(c, name):
              "contents": [
                  {"type": "box", "layout": "vertical", "flex": 1,
                   "contents": [
-                      {"type": "text", "text": f"{client_n} · {service}",
+                      {"type": "text", "text": client_n,
                        "size": "xl", "weight": "bold", "color": "#2C2C2A", "wrap": True},
+                      {"type": "box", "layout": "vertical", "spacing": "none", "margin": "xs",
+                       "contents": detail_rows},
                       {"type": "text", "text": f"# {case_id}",
                        "size": "md", "color": "#B4B2A9"},
                   ]},
