@@ -82,6 +82,11 @@ class SheetsDB:
         if WS_CASES not in existing:
             ws = self.spreadsheet.add_worksheet(WS_CASES, rows=1000, cols=10)
             ws.append_row(["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司"])
+        else:
+            ws = self.spreadsheet.worksheet(WS_CASES)
+            headers = ws.row_values(1)
+            if "保險公司" not in headers:
+                ws.update_cell(1, len(headers) + 1, "保險公司")
 
         if WS_CARDS not in existing:
             ws = self.spreadsheet.add_worksheet(WS_CARDS, rows=1000, cols=6)
