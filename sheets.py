@@ -81,7 +81,7 @@ class SheetsDB:
 
         if WS_CASES not in existing:
             ws = self.spreadsheet.add_worksheet(WS_CASES, rows=1000, cols=10)
-            ws.append_row(["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間"])
+            ws.append_row(["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司"])
 
         if WS_CARDS not in existing:
             ws = self.spreadsheet.add_worksheet(WS_CARDS, rows=1000, cols=6)
@@ -117,11 +117,11 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     # 保服案件
     # ══════════════════════════════════════════════════════════
-    def add_case(self, name: str, service_type: str, policy: str = "", note: str = "") -> str:
+    def add_case(self, name: str, service_type: str, policy: str = "", company: str = "", note: str = "") -> str:
         ws = self._ws(WS_CASES)
         records = ws.get_all_records()
         case_id = "C" + str(len(records) + 1).zfill(3)
-        ws.append_row([case_id, name, service_type, policy, "已聯絡", note, _now(), _now()])
+        ws.append_row([case_id, name, service_type, policy, "已聯絡", note, _now(), _now(), company])
         return case_id
 
     def get_cases(self, name: str) -> list:

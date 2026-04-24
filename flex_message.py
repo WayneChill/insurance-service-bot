@@ -94,8 +94,9 @@ def _single_bubble(client, search_name, cards=None):
     if not policy_rows:
         policy_rows = [{"type": "text", "text": "尚無保單資料", "size": "md", "color": "#888780"}]
 
-    name_enc   = quote(search_name)
-    policy_enc = quote(policies[0]["policy_num"]) if policies else ""
+    name_enc    = quote(search_name)
+    policy_enc  = quote(policies[0]["policy_num"]) if policies else ""
+    company_enc = quote(policies[0]["company"])    if policies else ""
 
     info_rows = [
         _info_row("📞", "電話", client.get("tel", "") or "-"),
@@ -149,9 +150,9 @@ def _single_bubble(client, search_name, cards=None):
                 {"type": "text", "text": "開立保服案件", "size": "sm", "color": "#888780", "align": "center"},
                 {"type": "box", "layout": "horizontal", "spacing": "sm",
                  "contents": [
-                     _postback_btn("理賠", f"action=理賠&name={name_enc}&policy={policy_enc}", "#FF6B6B"),
-                     _postback_btn("契變", f"action=契變&name={name_enc}&policy={policy_enc}", "#4DABF7"),
-                     _postback_btn("保費", f"action=保費變更&name={name_enc}&policy={policy_enc}", "#FFD43B"),
+                     _postback_btn("理賠", f"action=理賠&name={name_enc}&policy={policy_enc}&company={company_enc}", "#FF6B6B"),
+                     _postback_btn("契變", f"action=契變&name={name_enc}&policy={policy_enc}&company={company_enc}", "#4DABF7"),
+                     _postback_btn("保費", f"action=保費變更&name={name_enc}&policy={policy_enc}&company={company_enc}", "#FFD43B"),
                  ]},
                 _postback_btn("查看保服進度", f"action=check_cases&name={name_enc}", "#20C997"),
             ]
@@ -191,23 +192,26 @@ def build_cases_card(name, cases):
     }
 
 
-def build_case_created_card(case_id: str, name: str, service: str, policy: str = "") -> dict:
+def build_case_created_card(case_id: str, name: str, service: str, policy: str = "", company: str = "") -> dict:
     """開立保服案件後的確認卡片，含狀態更新按鈕"""
     from datetime import datetime
     c = {
         "案件ID": case_id, "客戶姓名": name, "服務項目": service,
-        "保單號碼": policy, "狀態": "已聯絡",
+        "保單號碼": policy, "保險公司": company, "狀態": "已聯絡",
         "建立時間": datetime.now().strftime("%Y/%m/%d %H:%M"),
     }
+    header_items = [
+        {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "xxl", "color": "#0F6E56"},
+        {"type": "text", "text": name, "size": "md", "color": "#0F6E56"},
+        {"type": "text", "text": service, "size": "md", "color": "#0F6E56"},
+    ]
+    if company:
+        header_items.append({"type": "text", "text": company, "size": "md", "color": "#0F6E56"})
     return {
         "type": "bubble", "size": "kilo",
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": "#E1F5EE",
-            "contents": [
-                {"type": "text", "text": "✅ 案件已開立", "weight": "bold", "size": "xxl", "color": "#0F6E56"},
-                {"type": "text", "text": name, "size": "md", "color": "#0F6E56"},
-                {"type": "text", "text": service, "size": "md", "color": "#0F6E56"},
-            ]
+            "contents": header_items
         },
         "body": {"type": "box", "layout": "vertical", "spacing": "sm",
                  "contents": [_case_item(c, name)]}
@@ -221,6 +225,7 @@ def _case_item(c, name):
     case_id  = c.get("案件ID", "")
     service  = c.get("服務項目", "")
     policy   = str(c.get("保單號碼", "")).strip()
+    company  = str(c.get("保險公司", "")).strip()
     created  = c.get("建立時間", "")
     client_n = c.get("客戶姓名", name)
     name_enc = quote(client_n)
@@ -229,7 +234,9 @@ def _case_item(c, name):
     detail_rows = [
         {"type": "text", "text": service, "size": "md", "color": "#5F5E5A"},
     ]
-    if policy:
+    if company:
+        detail_rows.append({"type": "text", "text": company, "size": "md", "color": "#5F5E5A"})
+    elif policy:
         detail_rows.append({"type": "text", "text": policy, "size": "md", "color": "#B4B2A9"})
 
     return {

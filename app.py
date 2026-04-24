@@ -222,13 +222,14 @@ def handle_message(event):
         parts = text.split()
         if len(parts) >= 2:
             get_db().del_pending(user_id)
-            name     = parts[0]
-            service  = " ".join(parts[1:])
-            case_id  = get_db().add_case(name, service)
-            contents = build_case_created_card(case_id, name, service)
+            name    = parts[0]
+            service = parts[1]
+            company = parts[2] if len(parts) >= 3 else ""
+            case_id  = get_db().add_case(name, service, company=company)
+            contents = build_case_created_card(case_id, name, service, company=company)
             reply    = _f(f"案件開立 {name}", contents)
         else:
-            reply = _t("❌ 請輸入「姓名 服務項目」，例如：\n王小明 理賠")
+            reply = _t("❌ 請輸入「姓名 服務項目 保險公司」，例如：\n王小明 理賠 南山")
 
     else:
         reply = _parse_command(text)
@@ -257,9 +258,10 @@ def handle_postback(event):
     policy = unquote(params.get("policy", ""))
 
     # ── 保服案件開立（理賠/契變/保費變更）
+    company = unquote(params.get("company", ""))
     if action in ("理賠", "契變", "保費變更"):
-        case_id  = get_db().add_case(name, action, policy)
-        contents = build_case_created_card(case_id, name, action, policy)
+        case_id  = get_db().add_case(name, action, policy, company)
+        contents = build_case_created_card(case_id, name, action, policy, company)
         _reply_flex(event, f"案件開立 {name}", contents)
 
     # ── 保服案件狀態更新
@@ -403,7 +405,7 @@ def _parse_command(text: str) -> dict:
     # 新增保服（無參數 → 對話模式）
     elif cmd == "新增保服" and len(parts) == 1:
         return {"type": "pending", "action": "新增保服",
-                "text": "📋 新增保服案件\n請輸入「姓名 服務項目」\n例如：王小明 理賠"}
+                "text": "📋 新增保服案件\n請輸入「姓名 服務項目 保險公司」\n例如：王小明 理賠 南山"}
 
     # 保服（待處理案件列表）
     elif cmd == "保服":
