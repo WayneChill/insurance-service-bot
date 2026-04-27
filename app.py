@@ -201,12 +201,9 @@ def handle_message(event):
             stype    = parts[2]
             title    = parts[3]
             note     = " ".join(parts[4:]) if len(parts) > 4 else ""
-            valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
             date_str, time_str, err = _parse_schedule_datetime(date_raw, time_raw)
             if err:
                 reply = _t(err)
-            elif stype not in valid_types:
-                reply = _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
             else:
                 sid = get_db().add_schedule(date_str, time_str, stype, title, note)
                 from flex_message import build_schedule_card
@@ -677,7 +674,7 @@ def _parse_command(text: str) -> dict:
 
     elif cmd == "新增行程" and len(parts) == 1:
         return {"type": "pending", "action": "新增行程",
-                "text": "📅 新增行程\n請輸入：日期 時間 類型 標題 備註(可省略)\n類型：拜訪客戶／課程開會／聯絡／私人\n例如：1150331 1400 拜訪客戶 王小明 信義區"}
+                "text": "📅 新增行程\n請輸入：日期 時間 類型 標題 備註(可省略)\n例如：1150331 1400 拜訪客戶 王小明 信義區"}
 
     elif cmd == "新增行程" and len(parts) >= 5:
         date_raw = parts[1]
@@ -688,9 +685,6 @@ def _parse_command(text: str) -> dict:
         date_str, time_str, err = _parse_schedule_datetime(date_raw, time_raw)
         if err:
             return _t(err)
-        valid_types = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
-        if stype not in valid_types:
-            return _t(f"❌ 類型錯誤，請用：{'、'.join(valid_types)}")
         sid = get_db().add_schedule(date_str, time_str, stype, title, note)
         from flex_message import build_schedule_card
         contents = build_schedule_card(
