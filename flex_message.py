@@ -659,6 +659,75 @@ def build_life_detail_card(detail: dict) -> dict:
     }
 
 
+def build_property_card_grouped(name: str, policies: list) -> dict:
+    """同被保人多張保單合併成一張卡片"""
+    import urllib.parse
+    min_days = min(int(row["剩餘天數"]) for row, _ in policies)
+    label, color = _prop_group(min_days)
+
+    name_enc = urllib.parse.quote(name[:8])
+
+    policy_rows = []
+    for row, cur in policies:
+        pid      = str(row["保單號碼"]).strip()
+        pid_enc  = urllib.parse.quote(pid)
+        days     = int(row["剩餘天數"])
+        company  = str(row.get("公司名稱", "")).strip()
+        product  = str(row.get("險別名稱", "")).strip()
+        fee      = int(row.get("總保費", 0))
+        expire   = row["到期日"].strftime("%Y/%m/%d")
+        st_text  = cur or "尚未聯絡"
+        st_emoji = PROP_STATUS_EMOJI.get(st_text, "⏳")
+        st_color = PROP_STATUS_COLOR.get(st_text, "#FFA502")
+
+        def pb(a, p=pid_enc):
+            return f"action={a}&id={p}&name={name_enc}"
+
+        policy_rows.append({
+            "type": "box", "layout": "vertical", "spacing": "xs",
+            "paddingAll": "10px", "backgroundColor": "#F8F8F8",
+            "cornerRadius": "8px", "margin": "sm",
+            "contents": [
+                {"type": "box", "layout": "horizontal",
+                 "contents": [
+                     {"type": "text", "text": f"{company}　{product}", "size": "sm", "weight": "bold", "color": "#2C2C2A", "flex": 1, "wrap": True},
+                     {"type": "text", "text": f"倒數{days}天", "size": "xs", "color": "#FF4757", "flex": 0, "weight": "bold"},
+                 ]},
+                {"type": "text", "text": f"保單：{pid}", "size": "xs", "color": "#888780"},
+                {"type": "text", "text": f"到期：{expire}　保費：${fee:,}", "size": "xs", "color": "#555555"},
+                {"type": "text", "text": f"{st_emoji} {st_text}", "size": "xs", "color": st_color, "weight": "bold"},
+                {"type": "box", "layout": "horizontal", "spacing": "xs", "margin": "sm",
+                 "contents": [
+                     {"type": "button", "style": "primary", "color": "#3B82F6", "height": "sm", "flex": 1,
+                      "action": {"type": "postback", "label": "報價", "data": pb("quoted")}},
+                     {"type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                      "action": {"type": "postback", "label": "延3天", "data": pb("delay")}},
+                     {"type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                      "action": {"type": "postback", "label": "延7天", "data": pb("delay7")}},
+                 ]},
+                {"type": "box", "layout": "horizontal", "spacing": "xs",
+                 "contents": [
+                     {"type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                      "action": {"type": "postback", "label": "不續保", "data": pb("cancel")}},
+                     {"type": "button", "style": "primary", "color": "#10B981", "height": "sm", "flex": 1,
+                      "action": {"type": "postback", "label": "續保完成", "data": pb("done")}},
+                 ]},
+            ]
+        })
+
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": color,
+            "contents": [
+                {"type": "text", "text": name, "color": "#FFFFFF", "size": "xl", "weight": "bold"},
+                {"type": "text", "text": f"{label}　共 {len(policies)} 張保單", "color": "#FFFFFF", "size": "sm"},
+            ]
+        },
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": policy_rows}
+    }
+
+
 def build_property_card(row, current_status=None) -> dict:
     """產險單張 bubble（同原 insurance-bot）"""
     import urllib.parse

@@ -534,7 +534,7 @@ def _parse_command(text: str) -> dict:
         try:
             import pandas as pd
             from excel_reader import download_excel
-            from flex_message import build_property_card
+            from flex_message import build_property_card, build_property_card_grouped
             buf = download_excel("42004.xlsx")
             df  = pd.read_excel(buf, header=3)
             df.columns = df.columns.str.strip()
@@ -561,13 +561,20 @@ def _parse_command(text: str) -> dict:
                 return _t("✅ 目前沒有60天內到期的產險")
             statuses = get_db().get_property_status()
             skip = {"續保完成", "不續保"}
-            cards = []
+            # 按被保人分組
+            from collections import defaultdict
+            groups = defaultdict(list)
             for _, row in urgent.iterrows():
                 pid = str(row["保單號碼"]).strip()
                 cur = statuses.get(pid, {}).get("status")
                 if cur in skip:
                     continue
-                cards.append(build_property_card(row, cur))
+                name = str(row["被保姓名"]).strip()
+                groups[name].append((row, cur))
+
+            cards = []
+            for name, policies in groups.items():
+                cards.append(build_property_card_grouped(name, policies))
             if not cards:
                 return _t("✅ 所有產險已處理完畢")
             contents = {"type": "carousel", "contents": cards[:10]}
