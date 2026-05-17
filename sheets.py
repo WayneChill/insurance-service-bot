@@ -124,23 +124,23 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def add_case(self, name: str, service_type: str, policy: str = "", company: str = "", note: str = "") -> str:
         ws = self._ws(WS_CASES)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         case_id = "C" + str(len(records) + 1).zfill(3)
         ws.append_row([case_id, name, service_type, policy, "已聯絡", note, _now(), _now(), company])
         return case_id
 
     def get_cases(self, name: str) -> list:
         ws = self._ws(WS_CASES)
-        return [r for r in ws.get_all_records() if r.get("客戶姓名") == name]
+        return [r for r in ws.get_all_records(expected_headers=list(ws.row_values(1))) if r.get("客戶姓名") == name]
 
     def get_all_pending_cases(self) -> list:
         ws = self._ws(WS_CASES)
         pending_statuses = {"已聯絡", "已送出", "核對中"}
-        return [r for r in ws.get_all_records() if r.get("狀態", "") in pending_statuses]
+        return [r for r in ws.get_all_records(expected_headers=list(ws.row_values(1))) if r.get("狀態", "") in pending_statuses]
 
     def update_case_status(self, case_id: str, status: str) -> bool:
         ws = self._ws(WS_CASES)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("案件ID") == case_id:
                 ws.update_cell(i, 5, status)   # 狀態
                 ws.update_cell(i, 8, _now())   # 更新時間
@@ -149,7 +149,7 @@ class SheetsDB:
 
     def update_case_note(self, case_id: str, note: str) -> str:
         ws = self._ws(WS_CASES)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("案件ID") == case_id:
                 ws.update_cell(i, 6, note)
                 ws.update_cell(i, 8, _now())
@@ -160,7 +160,7 @@ class SheetsDB:
         """回傳每日早報用的保服統計"""
         ws = self._ws(WS_CASES)
         counts = {"已聯絡": 0, "已送出": 0, "核對中": 0}
-        for r in ws.get_all_records():
+        for r in ws.get_all_records(expected_headers=list(ws.row_values(1))):
             s = r.get("狀態", "")
             if s in counts:
                 counts[s] += 1
@@ -173,11 +173,11 @@ class SheetsDB:
         self._ws(WS_CARDS).append_row([name, bank, card_num, expiry, policy_note])
 
     def get_cards(self, name: str) -> list:
-        return [r for r in self._ws(WS_CARDS).get_all_records() if r.get("姓名") == name]
+        return [r for r in self._ws(WS_CARDS).get_all_records(expected_headers=list(ws.row_values(1))) if r.get("姓名") == name]
 
     def delete_card(self, name: str, bank: str, card_num: str) -> bool:
         ws = self._ws(WS_CARDS)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if (str(r.get("姓名", "")).strip() == name.strip() and
                 str(r.get("銀行名", "")).strip() == bank.strip() and
                 str(r.get("卡號前4碼", "")).strip() == card_num.strip()):
@@ -190,17 +190,17 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def add_biz(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_BIZ)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         rid = "B" + str(len(records) + 1).zfill(3)
         ws.append_row([rid, name, phone, stage, note, _now(), _now()])
         return rid
 
     def get_biz_list(self) -> list:
-        return self._ws(WS_BIZ).get_all_records()
+        return self._ws(WS_BIZ).get_all_records(expected_headers=list(ws.row_values(1)))
 
     def update_biz_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_BIZ)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 4, stage)
                 ws.update_cell(i, 7, _now())
@@ -210,7 +210,7 @@ class SheetsDB:
     def update_biz_note(self, rid: str, note: str) -> str:
         """更新業務備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_BIZ)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 5, note)
                 ws.update_cell(i, 7, _now())
@@ -219,7 +219,7 @@ class SheetsDB:
 
     def count_biz_by_stage(self) -> dict:
         counts = {s: 0 for s in BIZ_STAGES}
-        for r in self._ws(WS_BIZ).get_all_records():
+        for r in self._ws(WS_BIZ).get_all_records(expected_headers=list(ws.row_values(1))):
             s = r.get("階段", "")
             if s in counts:
                 counts[s] += 1
@@ -230,17 +230,17 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def add_recruit(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_RECRUIT)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         rid = "R" + str(len(records) + 1).zfill(3)
         ws.append_row([rid, name, phone, stage, note, _now(), _now()])
         return rid
 
     def get_recruit_list(self) -> list:
-        return self._ws(WS_RECRUIT).get_all_records()
+        return self._ws(WS_RECRUIT).get_all_records(expected_headers=list(ws.row_values(1)))
 
     def update_recruit_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_RECRUIT)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 4, stage)
                 ws.update_cell(i, 7, _now())
@@ -250,7 +250,7 @@ class SheetsDB:
     def update_recruit_note(self, rid: str, note: str) -> str:
         """更新增員備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_RECRUIT)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 5, note)
                 ws.update_cell(i, 7, _now())
@@ -259,7 +259,7 @@ class SheetsDB:
 
     def count_recruit_by_stage(self) -> dict:
         counts = {s: 0 for s in RECRUIT_STAGES}
-        for r in self._ws(WS_RECRUIT).get_all_records():
+        for r in self._ws(WS_RECRUIT).get_all_records(expected_headers=list(ws.row_values(1))):
             s = r.get("階段", "")
             if s in counts:
                 counts[s] += 1
@@ -270,17 +270,17 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def add_newcase(self, name: str, company: str, stage: str = "核保中", note: str = "") -> str:
         ws = self._ws(WS_NEWCASE)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         rid = "N" + str(len(records) + 1).zfill(3)
         ws.append_row([rid, name, company, stage, note, _now(), _now()])
         return rid
 
     def get_newcase_list(self) -> list:
-        return self._ws(WS_NEWCASE).get_all_records()
+        return self._ws(WS_NEWCASE).get_all_records(expected_headers=list(ws.row_values(1)))
 
     def update_newcase_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_NEWCASE)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 4, stage)
                 ws.update_cell(i, 7, _now())
@@ -289,7 +289,7 @@ class SheetsDB:
 
     def update_newcase_note(self, rid: str, note: str) -> str:
         ws = self._ws(WS_NEWCASE)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("ID") == rid:
                 ws.update_cell(i, 5, note)
                 ws.update_cell(i, 7, _now())
@@ -298,7 +298,7 @@ class SheetsDB:
 
     def count_newcase_by_stage(self) -> dict:
         counts = {s: 0 for s in NEWCASE_STAGES}
-        for r in self._ws(WS_NEWCASE).get_all_records():
+        for r in self._ws(WS_NEWCASE).get_all_records(expected_headers=list(ws.row_values(1))):
             s = r.get("階段", "")
             if s in counts:
                 counts[s] += 1
@@ -309,14 +309,14 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def add_schedule(self, date: str, time: str, stype: str, title: str, note: str = "") -> str:
         ws = self._ws(WS_SCHEDULE)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         sid = "S" + str(len(records) + 1).zfill(3)
         ws.append_row([sid, date, time, stype, title, note, _now()])
         return sid
 
     def delete_schedule(self, sid: str) -> bool:
         ws = self._ws(WS_SCHEDULE)
-        for i, row in enumerate(ws.get_all_records(), start=2):
+        for i, row in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if str(row.get("ID", "")).strip() == sid.strip():
                 ws.delete_rows(i)
                 return True
@@ -325,7 +325,7 @@ class SheetsDB:
     def get_schedule_by_range(self, start_date: str, end_date: str) -> list:
         from datetime import datetime as _dt
         ws = self._ws(WS_SCHEDULE)
-        records = ws.get_all_records()
+        records = ws.get_all_records(expected_headers=list(ws.row_values(1)))
         result = []
         for r in records:
             try:
@@ -371,7 +371,7 @@ class SheetsDB:
             ws = self.spreadsheet.sheet1
             return {
                 str(r.get("保單號碼", "")): {"status": r.get("狀態", ""), "name": r.get("姓名", "")}
-                for r in ws.get_all_records() if r.get("保單號碼")
+                for r in ws.get_all_records(expected_headers=list(ws.row_values(1))) if r.get("保單號碼")
             }
         except Exception as e:
             print(f"[WARN] 產險狀態讀取失敗: {e}")
@@ -384,7 +384,7 @@ class SheetsDB:
         """取得 pending action；超過10分鐘自動過期回傳 None"""
         from datetime import datetime, timedelta
         ws = self._ws(WS_PENDING)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("user_id") == user_id:
                 try:
                     ts = datetime.strptime(r["timestamp"], "%Y/%m/%d %H:%M:%S")
@@ -401,7 +401,7 @@ class SheetsDB:
         from datetime import datetime
         ws = self._ws(WS_PENDING)
         ts = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("user_id") == user_id:
                 ws.update(f"A{i}:C{i}", [[user_id, action, ts]])
                 return
@@ -410,7 +410,7 @@ class SheetsDB:
     def del_pending(self, user_id: str):
         """清除 pending action"""
         ws = self._ws(WS_PENDING)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if r.get("user_id") == user_id:
                 ws.delete_rows(i)
                 return
@@ -420,11 +420,11 @@ class SheetsDB:
     # ══════════════════════════════════════════════════════════
     def get_payment_failures(self) -> list:
         ws = self._ws(WS_PAYMENT)
-        return [r for r in ws.get_all_records() if r.get("狀態", "") != "已完成"]
+        return [r for r in ws.get_all_records(expected_headers=list(ws.row_values(1))) if r.get("狀態", "") != "已完成"]
 
     def update_payment_status(self, row_id: str, status: str) -> bool:
         ws = self._ws(WS_PAYMENT)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if str(r.get("ID", "")).strip() == row_id:
                 ws.update_cell(i, 8, status)
                 ws.update_cell(i, 10, _now())
@@ -433,7 +433,7 @@ class SheetsDB:
 
     def add_payment_note(self, row_id: str, note: str) -> str:
         ws = self._ws(WS_PAYMENT)
-        for i, r in enumerate(ws.get_all_records(), start=2):
+        for i, r in enumerate(ws.get_all_records(expected_headers=list(ws.row_values(1))), start=2):
             if str(r.get("ID", "")).strip() == row_id:
                 ws.update_cell(i, 9, note)
                 ws.update_cell(i, 10, _now())
