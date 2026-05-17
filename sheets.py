@@ -1,0 +1,584 @@
+"""
+sheets.py ── 統一 Google Sheets 存取層
+工作表：
+  保服案件    – 保服追蹤（原保服助手）
+  信用卡      – 信用卡資料（原保服助手）
+  業務追蹤    – 業務開發各階段（新）
+  增員追蹤    – 增員各階段（新）
+"""
+import os
+import json
+import base64
+from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
+
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+WS_CASES    = "保服案件"
+WS_CARDS    = "信用卡"
+WS_BIZ      = "業務追蹤"
+WS_RECRUIT  = "增員追蹤"
+WS_NEWCASE  = "新契約追蹤"
+WS_SCHEDULE = "行程"
+WS_PENDING  = "待確認狀態"
+WS_PAYMENT  = "扣款失敗"
+
+BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
+RECRUIT_STAGES  = ["已聯繫", "約聊聊", "約簽約"]
+NEWCASE_STAGES  = ["核保中", "照會中", "發單中"]
+SCHEDULE_TYPES  = ["拜訪客戶", "課程/開會", "聯絡", "私人"]
+
+
+def _now() -> str:
+    return datetime.now().strftime("%Y/%m/%d %H:%M")
+
+
+def _get_creds():
+    b64 = os.environ.get("GOOGLE_CREDENTIALS_B64", "")
+    if b64:
+        info = json.loads(base64.b64decode(b64).decode("utf-8"))
+    else:
+        path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+        with open(path, encoding="utf-8") as f:
+            info = json.load(f)
+    return Credentials.from_service_account_info(info, scopes=SCOPES)
+
+
+class SheetsDB:
+    """單例式 Google Sheets 連線（app 啟動時初始化一次）"""
+
+    def __init__(self):
+        print("[DB] 開始連線 Google Sheets...", flush=True)
+        creds = _get_creds()
+        print("[DB] 憑證取得成功", flush=True)
+        b64 = os.environ.get("GOOGLE_CREDENTIALS_B64", "")
+        if b64:
+            import tempfile
+            info2 = json.loads(base64.b64decode(b64).decode("utf-8"))
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+                json.dump(info2, f)
+                tmp_path = f.name
+            gc = gspread.service_account(filename=tmp_path)
+            os.unlink(tmp_path)
+        else:
+            path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+            gc = gspread.service_account(filename=path)
+        print(f"[DB] 嘗試開啟 GOOGLE_SHEET_ID: {os.environ.get('GOOGLE_SHEET_ID','未設定')}", flush=True)
+        self.spreadsheet = gc.open_by_key(os.environ["GOOGLE_SHEET_ID"])
+        print("[DB] Sheets 連線成功", flush=True)
+        self._ensure_sheets()
+        print("[DB] 工作表初始化完成", flush=True)
+
+    def _ensure_sheets(self):
+        existing = [ws.title for ws in self.spreadsheet.worksheets()]
+        if WS_CASES not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_CASES, rows=1000, cols=10)
+            ws.append_row(["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司"])
+        else:
+            ws = self.spreadsheet.worksheet(WS_CASES)
+            headers = ws.row_values(1)
+            if "保險公司" not in headers:
+                ws.update_cell(1, len(headers) + 1, "保險公司")
+        if WS_CARDS not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_CARDS, rows=1000, cols=6)
+            ws.append_row(["姓名", "銀行名", "卡號前4碼", "效期", "備註保單"])
+        if WS_BIZ not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_BIZ, rows=1000, cols=8)
+            ws.append_row(["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"])
+        if WS_RECRUIT not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_RECRUIT, rows=1000, cols=8)
+            ws.append_row(["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"])
+        if WS_NEWCASE not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_NEWCASE, rows=1000, cols=8)
+            ws.append_row(["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間"])
+        if WS_SCHEDULE not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_SCHEDULE, rows=1000, cols=8)
+            ws.append_row(["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"])
+        if WS_PENDING not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_PENDING, rows=200, cols=3)
+            ws.append_row(["user_id", "action", "timestamp"])
+        if WS_PAYMENT not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_PAYMENT, rows=1000, cols=10)
+            ws.append_row(["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "保費", "狀態", "備註", "更新時間"])
+
+    def _ws(self, name):
+        return self.spreadsheet.worksheet(name)
+
+    # ══ 保服案件 ══
+    def add_case(self, name: str, service_type: str, policy: str = "", company: str = "", note: str = "") -> str:
+        ws = self._ws(WS_CASES)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        case_id = "C" + str(len(records) + 1).zfill(3)
+        ws.append_row([case_id, name, service_type, policy, "已聯絡", note, _now(), _now(), company])
+        return case_id
+
+    def get_cases(self, name: str) -> list:
+        ws = self._ws(WS_CASES)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return [r for r in records if r.get("客戶姓名") == name]
+
+    def get_all_pending_cases(self) -> list:
+        ws = self._ws(WS_CASES)
+        pending_statuses = {"已聯絡", "已送出", "核對中"}
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return [r for r in records if r.get("狀態", "") in pending_statuses]
+
+    def update_case_status(self, case_id: str, status: str) -> bool:
+        ws = self._ws(WS_CASES)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("案件ID") == case_id:
+                ws.update_cell(i, 5, status)   # 狀態
+                ws.update_cell(i, 8, _now())   # 更新時間
+                return True
+        return False
+
+    def update_case_note(self, case_id: str, note: str) -> str:
+        ws = self._ws(WS_CASES)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("案件ID") == case_id:
+                ws.update_cell(i, 6, note)
+                ws.update_cell(i, 8, _now())
+                return r.get("客戶姓名", "")
+        return ""
+
+    def count_cases_by_status(self) -> dict:
+        """回傳每日早報用的保服統計"""
+        ws = self._ws(WS_CASES)
+        counts = {"已聯絡": 0, "已送出": 0, "核對中": 0}
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for r in records:
+            s = r.get("狀態", "")
+            if s in counts:
+                counts[s] += 1
+        return counts
+
+    # ══ 信用卡 ══
+    def add_card(self, name: str, bank: str, card_num: str, expiry: str, policy_note: str = ""):
+        self._ws(WS_CARDS).append_row([name, bank, card_num, expiry, policy_note])
+
+    def get_cards(self, name: str) -> list:
+        ws = self._ws(WS_CARDS)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return [r for r in records if r.get("姓名") == name]
+
+    def delete_card(self, name: str, bank: str, card_num: str) -> bool:
+        ws = self._ws(WS_CARDS)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if (str(r.get("姓名", "")).strip() == name.strip() and
+                str(r.get("銀行名", "")).strip() == bank.strip() and
+                str(r.get("卡號前4碼", "")).strip() == card_num.strip()):
+                ws.delete_rows(i)
+                return True
+        return False
+
+    # ══ 業務追蹤 ══
+    def add_biz(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
+        ws = self._ws(WS_BIZ)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        rid = "B" + str(len(records) + 1).zfill(3)
+        ws.append_row([rid, name, phone, stage, note, _now(), _now()])
+        return rid
+
+    def get_biz_list(self) -> list:
+        ws = self._ws(WS_BIZ)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return records
+
+    def update_biz_stage(self, rid: str, stage: str) -> bool:
+        ws = self._ws(WS_BIZ)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 4, stage)
+                ws.update_cell(i, 7, _now())
+                return True
+        return False
+
+    def update_biz_note(self, rid: str, note: str) -> str:
+        """更新業務備註，回傳姓名（找不到回傳空字串）"""
+        ws = self._ws(WS_BIZ)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
+
+    def count_biz_by_stage(self) -> dict:
+        counts = {s: 0 for s in BIZ_STAGES}
+        ws = self._ws(WS_BIZ)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for r in records:
+            s = r.get("階段", "")
+            if s in counts:
+                counts[s] += 1
+        return counts
+
+    # ══ 增員追蹤 ══
+    def add_recruit(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
+        ws = self._ws(WS_RECRUIT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        rid = "R" + str(len(records) + 1).zfill(3)
+        ws.append_row([rid, name, phone, stage, note, _now(), _now()])
+        return rid
+
+    def get_recruit_list(self) -> list:
+        ws = self._ws(WS_RECRUIT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return records
+
+    def update_recruit_stage(self, rid: str, stage: str) -> bool:
+        ws = self._ws(WS_RECRUIT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 4, stage)
+                ws.update_cell(i, 7, _now())
+                return True
+        return False
+
+    def update_recruit_note(self, rid: str, note: str) -> str:
+        """更新增員備註，回傳姓名（找不到回傳空字串）"""
+        ws = self._ws(WS_RECRUIT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
+
+    def count_recruit_by_stage(self) -> dict:
+        counts = {s: 0 for s in RECRUIT_STAGES}
+        ws = self._ws(WS_RECRUIT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for r in records:
+            s = r.get("階段", "")
+            if s in counts:
+                counts[s] += 1
+        return counts
+
+    # ══ 新契約追蹤 ══
+    def add_newcase(self, name: str, company: str, stage: str = "核保中", note: str = "") -> str:
+        ws = self._ws(WS_NEWCASE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        rid = "N" + str(len(records) + 1).zfill(3)
+        ws.append_row([rid, name, company, stage, note, _now(), _now()])
+        return rid
+
+    def get_newcase_list(self) -> list:
+        ws = self._ws(WS_NEWCASE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return records
+
+    def update_newcase_stage(self, rid: str, stage: str) -> bool:
+        ws = self._ws(WS_NEWCASE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 4, stage)
+                ws.update_cell(i, 7, _now())
+                return True
+        return False
+
+    def update_newcase_note(self, rid: str, note: str) -> str:
+        ws = self._ws(WS_NEWCASE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("ID") == rid:
+                ws.update_cell(i, 5, note)
+                ws.update_cell(i, 7, _now())
+                return r.get("姓名", "")
+        return ""
+
+    def count_newcase_by_stage(self) -> dict:
+        counts = {s: 0 for s in NEWCASE_STAGES}
+        ws = self._ws(WS_NEWCASE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for r in records:
+            s = r.get("階段", "")
+            if s in counts:
+                counts[s] += 1
+        return counts
+
+    # ══ 行程 ══
+    def add_schedule(self, date: str, time: str, stype: str, title: str, note: str = "") -> str:
+        ws = self._ws(WS_SCHEDULE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        sid = "S" + str(len(records) + 1).zfill(3)
+        ws.append_row([sid, date, time, stype, title, note, _now()])
+        return sid
+
+    def delete_schedule(self, sid: str) -> bool:
+        ws = self._ws(WS_SCHEDULE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, row in enumerate(records, start=2):
+            if str(row.get("ID", "")).strip() == sid.strip():
+                ws.delete_rows(i)
+                return True
+        return False
+
+    def get_schedule_by_range(self, start_date: str, end_date: str) -> list:
+        from datetime import datetime as _dt
+        ws = self._ws(WS_SCHEDULE)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        result = []
+        for r in records:
+            try:
+                d = _dt.strptime(r.get("日期", ""), "%Y/%m/%d").date()
+                s = _dt.strptime(start_date, "%Y/%m/%d").date()
+                e = _dt.strptime(end_date, "%Y/%m/%d").date()
+                if s <= d <= e:
+                    result.append(r)
+            except:
+                continue
+        return sorted(result, key=lambda x: (x.get("日期", ""), x.get("時間", "")))
+
+    def get_today_schedule(self) -> list:
+        from datetime import date
+        today = date.today().strftime("%Y/%m/%d")
+        return self.get_schedule_by_range(today, today)
+
+    def get_week_schedule(self) -> list:
+        from datetime import date, timedelta
+        today = date.today()
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+        return self.get_schedule_by_range(
+            start.strftime("%Y/%m/%d"),
+            end.strftime("%Y/%m/%d")
+        )
+
+    def get_month_schedule(self) -> list:
+        from datetime import date
+        import calendar
+        today = date.today()
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        start = today.replace(day=1).strftime("%Y/%m/%d")
+        end = today.replace(day=last_day).strftime("%Y/%m/%d")
+        return self.get_schedule_by_range(start, end)
+
+    # ══ 產險狀態 ══
+    def get_property_status(self) -> dict:
+        """讀取第一個工作表（產險聯絡狀態）"""
+        try:
+            ws = self.spreadsheet.sheet1
+            records = ws.get_all_records()
+            return {
+                str(r.get("保單號碼", "")): {"status": r.get("狀態", ""), "name": r.get("姓名", "")}
+                for r in records if r.get("保單號碼")
+            }
+        except Exception as e:
+            print(f"[WARN] 產險狀態讀取失敗: {{e}}")
+            return {}
+
+    # ══ 對話暫存 ══
+    def get_pending(self, user_id: str):
+        """取得 pending action；超過10分鐘自動過期回傳 None"""
+        from datetime import datetime, timedelta
+        ws = self._ws(WS_PENDING)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("user_id") == user_id:
+                try:
+                    ts = datetime.strptime(r["timestamp"], "%Y/%m/%d %H:%M:%S")
+                    if datetime.now() - ts > timedelta(minutes=10):
+                        ws.delete_rows(i)
+                        return None
+                except Exception:
+                    pass
+                return r.get("action") or None
+        return None
+
+    def set_pending(self, user_id: str, action: str):
+        """設定 pending action（同一 user_id 直接覆蓋）"""
+        from datetime import datetime
+        ws = self._ws(WS_PENDING)
+        ts = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("user_id") == user_id:
+                ws.update(f"A{{i}}:C{{i}}", [[user_id, action, ts]])
+                return
+        ws.append_row([user_id, action, ts])
+
+    def del_pending(self, user_id: str):
+        """清除 pending action"""
+        ws = self._ws(WS_PENDING)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if r.get("user_id") == user_id:
+                ws.delete_rows(i)
+                return
+
+    # ══ 扣款失敗追蹤 ══
+    def get_payment_failures(self) -> list:
+        ws = self._ws(WS_PAYMENT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        return [r for r in records if r.get("狀態", "") != "已完成"]
+
+    def update_payment_status(self, row_id: str, status: str) -> bool:
+        ws = self._ws(WS_PAYMENT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if str(r.get("ID", "")).strip() == row_id:
+                ws.update_cell(i, 8, status)
+                ws.update_cell(i, 10, _now())
+                return True
+        return False
+
+    def add_payment_note(self, row_id: str, note: str) -> str:
+        ws = self._ws(WS_PAYMENT)
+                try:
+            records = ws.get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            records = []
+        for i, r in enumerate(records, start=2):
+            if str(r.get("ID", "")).strip() == row_id:
+                ws.update_cell(i, 9, note)
+                ws.update_cell(i, 10, _now())
+                return r.get("要保人", "")
+        return ""
+
+    def write_property_status(self, policy_id: str, name: str, label: str):
+        ws = self.spreadsheet.sheet1
+        cells = ws.findall(policy_id, in_column=1)
+        row_data = [policy_id, name, label, _now()]
+        if cells:
+            r = cells[0].row
+            ws.update(f"A{{r}}:D{{r}}", [row_data])
+        else:
+            ws.append_row(row_data)
