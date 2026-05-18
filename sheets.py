@@ -111,7 +111,7 @@ class SheetsDB:
     # ══ 保服案件 ══
     def add_case(self, name: str, service_type: str, policy: str = "", company: str = "", note: str = "") -> str:
         ws = self._ws(WS_CASES)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -122,7 +122,7 @@ class SheetsDB:
 
     def get_cases(self, name: str) -> list:
         ws = self._ws(WS_CASES)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -132,7 +132,7 @@ class SheetsDB:
     def get_all_pending_cases(self) -> list:
         ws = self._ws(WS_CASES)
         pending_statuses = {"已聯絡", "已送出", "核對中"}
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -141,7 +141,7 @@ class SheetsDB:
 
     def update_case_status(self, case_id: str, status: str) -> bool:
         ws = self._ws(WS_CASES)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -155,7 +155,7 @@ class SheetsDB:
 
     def update_case_note(self, case_id: str, note: str) -> str:
         ws = self._ws(WS_CASES)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -171,7 +171,7 @@ class SheetsDB:
         """回傳每日早報用的保服統計"""
         ws = self._ws(WS_CASES)
         counts = {"已聯絡": 0, "已送出": 0, "核對中": 0}
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -188,7 +188,7 @@ class SheetsDB:
 
     def get_cards(self, name: str) -> list:
         ws = self._ws(WS_CARDS)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -197,7 +197,7 @@ class SheetsDB:
 
     def delete_card(self, name: str, bank: str, card_num: str) -> bool:
         ws = self._ws(WS_CARDS)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -213,7 +213,7 @@ class SheetsDB:
     # ══ 業務追蹤 ══
     def add_biz(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_BIZ)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -224,7 +224,7 @@ class SheetsDB:
 
     def get_biz_list(self) -> list:
         ws = self._ws(WS_BIZ)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -233,7 +233,7 @@ class SheetsDB:
 
     def update_biz_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_BIZ)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -248,7 +248,7 @@ class SheetsDB:
     def update_biz_note(self, rid: str, note: str) -> str:
         """更新業務備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_BIZ)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -263,7 +263,7 @@ class SheetsDB:
     def count_biz_by_stage(self) -> dict:
         counts = {s: 0 for s in BIZ_STAGES}
         ws = self._ws(WS_BIZ)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -277,7 +277,7 @@ class SheetsDB:
     # ══ 增員追蹤 ══
     def add_recruit(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_RECRUIT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -288,7 +288,7 @@ class SheetsDB:
 
     def get_recruit_list(self) -> list:
         ws = self._ws(WS_RECRUIT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -297,7 +297,7 @@ class SheetsDB:
 
     def update_recruit_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_RECRUIT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -312,7 +312,7 @@ class SheetsDB:
     def update_recruit_note(self, rid: str, note: str) -> str:
         """更新增員備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_RECRUIT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -327,7 +327,7 @@ class SheetsDB:
     def count_recruit_by_stage(self) -> dict:
         counts = {s: 0 for s in RECRUIT_STAGES}
         ws = self._ws(WS_RECRUIT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -341,7 +341,7 @@ class SheetsDB:
     # ══ 新契約追蹤 ══
     def add_newcase(self, name: str, company: str, stage: str = "核保中", note: str = "") -> str:
         ws = self._ws(WS_NEWCASE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -352,7 +352,7 @@ class SheetsDB:
 
     def get_newcase_list(self) -> list:
         ws = self._ws(WS_NEWCASE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -361,7 +361,7 @@ class SheetsDB:
 
     def update_newcase_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_NEWCASE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -375,7 +375,7 @@ class SheetsDB:
 
     def update_newcase_note(self, rid: str, note: str) -> str:
         ws = self._ws(WS_NEWCASE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -390,7 +390,7 @@ class SheetsDB:
     def count_newcase_by_stage(self) -> dict:
         counts = {s: 0 for s in NEWCASE_STAGES}
         ws = self._ws(WS_NEWCASE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -404,7 +404,7 @@ class SheetsDB:
     # ══ 行程 ══
     def add_schedule(self, date: str, time: str, stype: str, title: str, note: str = "") -> str:
         ws = self._ws(WS_SCHEDULE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -415,7 +415,7 @@ class SheetsDB:
 
     def delete_schedule(self, sid: str) -> bool:
         ws = self._ws(WS_SCHEDULE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -429,7 +429,7 @@ class SheetsDB:
     def get_schedule_by_range(self, start_date: str, end_date: str) -> list:
         from datetime import datetime as _dt
         ws = self._ws(WS_SCHEDULE)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -481,7 +481,7 @@ class SheetsDB:
                 for r in records if r.get("保單號碼")
             }
         except Exception as e:
-            print(f"[WARN] 產險狀態讀取失敗: {{e}}")
+            print(f"[WARN] 產險狀態讀取失敗: {e}")
             return {}
 
     # ══ 對話暫存 ══
@@ -489,7 +489,7 @@ class SheetsDB:
         """取得 pending action；超過10分鐘自動過期回傳 None"""
         from datetime import datetime, timedelta
         ws = self._ws(WS_PENDING)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -511,21 +511,21 @@ class SheetsDB:
         from datetime import datetime
         ws = self._ws(WS_PENDING)
         ts = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             records = []
         for i, r in enumerate(records, start=2):
             if r.get("user_id") == user_id:
-                ws.update(f"A{{i}}:C{{i}}", [[user_id, action, ts]])
+                ws.update(f"A{i}:C{i}", [[user_id, action, ts]])
                 return
         ws.append_row([user_id, action, ts])
 
     def del_pending(self, user_id: str):
         """清除 pending action"""
         ws = self._ws(WS_PENDING)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -538,7 +538,7 @@ class SheetsDB:
     # ══ 扣款失敗追蹤 ══
     def get_payment_failures(self) -> list:
         ws = self._ws(WS_PAYMENT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -547,7 +547,7 @@ class SheetsDB:
 
     def update_payment_status(self, row_id: str, status: str) -> bool:
         ws = self._ws(WS_PAYMENT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -561,7 +561,7 @@ class SheetsDB:
 
     def add_payment_note(self, row_id: str, note: str) -> str:
         ws = self._ws(WS_PAYMENT)
-                try:
+        try:
             records = ws.get_all_records()
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
@@ -579,6 +579,6 @@ class SheetsDB:
         row_data = [policy_id, name, label, _now()]
         if cells:
             r = cells[0].row
-            ws.update(f"A{{r}}:D{{r}}", [row_data])
+            ws.update(f"A{r}:D{r}", [row_data])
         else:
             ws.append_row(row_data)
