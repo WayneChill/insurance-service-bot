@@ -5,9 +5,10 @@ Railway 部署：insurance-service-bot 專案（主）
 """
 import os
 import json
+import hmac
 from urllib.parse import unquote
 from datetime import datetime
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify, make_response
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -74,6 +75,92 @@ def _startup_init():
     threading.Thread(target=_init, daemon=True).start()
 
 _startup_init()
+
+# ── 保險業務平台雙向 API ──────────────────────────────────
+DASHBOARD_ORIGIN = os.environ.get(
+    "DASHBOARD_ORIGIN",
+    "https://claims-assistant.waynechiuchiu.chatgpt.site"
+)
+
+def _dashboard_authorized():
+    expected = os.environ.get("DASHBOARD_API_KEY", "")
+    supplied = request.headers.get("X-Dashboard-Key", "")
+    return bool(expected) and hmac.compare_digest(supplied, expected)
+
+@app.after_request
+def _dashboard_cors(response):
+    if request.path.startswith("/api/dashboard"):
+        origin = request.headers.get("Origin", "")
+        if origin == DASHBOARD_ORIGIN:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Vary"] = "Origin"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Dashboard-Key"
+            response.headers["Access-Control-Allow-Methods"] = "GET, PATCH, DELETE, OPTIONS"
+    return response
+
+@app.route("/api/dashboard/<resource>", methods=["GET", "OPTIONS"])
+@app.route("/api/dashboard/<resource>/<record_id>", methods=["PATCH", "DELETE", "OPTIONS"])
+def dashboard_api(resource, record_id=None):
+    if request.method == "OPTIONS":
+        return make_response("", 204)
+    if not os.environ.get("DASHBOARD_API_KEY"):
+        return jsonify({"error": "DASHBOARD_API_KEY is not configured"}), 503
+    if not _dashboard_authorized():
+        return jsonify({"error": "unauthorized"}), 401
+
+    db = get_db()
+    readers = {
+        "cases": db.get_all_pending_cases,
+        "biz": db.get_biz_list,
+        "recruit": db.get_recruit_list,
+        "newcases": db.get_newcase_list,
+        "schedules": lambda: db.get_schedule_by_range("2000/01/01", "2100/12/31"),
+        "payments": db.get_payment_failures,
+    }
+    if resource not in readers:
+        return jsonify({"error": "unknown resource"}), 404
+
+    if request.method == "GET":
+        return jsonify(readers[resource]())
+
+    if request.method == "DELETE":
+        if resource != "schedules":
+            return jsonify({"error": "delete is only supported for schedules"}), 405
+        ok = db.delete_schedule(record_id)
+        return (jsonify({"ok": True}) if ok else (jsonify({"error": "not found"}), 404))
+
+    data = request.get_json(silent=True) or {}
+    ok = False
+    if resource == "cases":
+        if "狀態" in data:
+            ok = db.update_case_status(record_id, str(data["狀態"])) or ok
+        if "備註" in data:
+            ok = bool(db.update_case_note(record_id, str(data["備註"]))) or ok
+    elif resource == "biz":
+        if "階段" in data:
+            ok = db.update_biz_stage(record_id, str(data["階段"])) or ok
+        if "備註" in data:
+            ok = bool(db.update_biz_note(record_id, str(data["備註"]))) or ok
+    elif resource == "recruit":
+        if "階段" in data:
+            ok = db.update_recruit_stage(record_id, str(data["階段"])) or ok
+        if "備註" in data:
+            ok = bool(db.update_recruit_note(record_id, str(data["備註"]))) or ok
+    elif resource == "newcases":
+        if "階段" in data:
+            ok = db.update_newcase_stage(record_id, str(data["階段"])) or ok
+        if "備註" in data:
+            ok = bool(db.update_newcase_note(record_id, str(data["備註"]))) or ok
+    elif resource == "payments":
+        if "狀態" in data:
+            ok = db.update_payment_status(record_id, str(data["狀態"])) or ok
+        if "備註" in data:
+            ok = bool(db.add_payment_note(record_id, str(data["備註"]))) or ok
+    else:
+        return jsonify({"error": "schedule editing is not supported"}), 405
+
+    return (jsonify({"ok": True}) if ok else (jsonify({"error": "not found or no editable fields"}), 404))
+
 
 # ── Webhook ───────────────────────────────────────────────
 @app.route("/callback", methods=["POST"])
@@ -885,3 +972,4 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+
