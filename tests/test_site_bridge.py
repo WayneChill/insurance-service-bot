@@ -2,6 +2,7 @@ import unittest
 
 from site_bridge import (
     bearer_authorized,
+    build_case_import_rows,
     mask_policy_number,
     mask_vehicle_number,
     validate_case_payload,
@@ -53,6 +54,27 @@ class SiteBridgeTests(unittest.TestCase):
     def test_masks_source_identifiers(self):
         self.assertEqual(mask_vehicle_number("ABC-1234"), "***-1234")
         self.assertEqual(mask_policy_number("AB123456789"), "AB******789")
+
+    def test_case_import_rows_only_include_allowlisted_metadata(self):
+        rows = build_case_import_rows([{
+            "案件ID": "C001",
+            "客戶姓名": "王小明",
+            "服務項目": "信用卡授權書",
+            "保單號碼": "SECRET-POLICY",
+            "狀態": "已聯絡",
+            "備註": "medical details",
+            "建立時間": "2026/09/26 10:00",
+            "保險公司": "全球人壽、遠雄人壽",
+        }])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["documentType"], "cardAuth")
+        self.assertEqual(rows[0]["insurers"], ["全球人壽", "遠雄人壽"])
+        self.assertEqual(set(rows[0]), {
+            "sourceKey", "documentType", "customerDisplayName",
+            "insurers", "createdAt", "status",
+        })
+        self.assertNotIn("SECRET-POLICY", str(rows[0]))
+        self.assertNotIn("medical details", str(rows[0]))
 
 
 if __name__ == "__main__":

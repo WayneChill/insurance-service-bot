@@ -7,6 +7,7 @@ import os
 import json
 import hmac
 import re
+import threading
 import unicodedata
 from urllib.parse import unquote
 from datetime import datetime
@@ -48,7 +49,7 @@ from flex_message import (
     build_help_message
 )
 from scheduler import start_scheduler
-from site_bridge import bearer_authorized, post_json, validate_case_payload
+from site_bridge import bearer_authorized, build_case_import_rows, post_json, validate_case_payload
 
 app      = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -121,6 +122,47 @@ def _sync_renewals_to_site(line_user_id: str) -> tuple[bool, str]:
     if status == 404:
         return False, "❌ 此 LINE 尚未綁定網站，請先完成六位數綁定"
     return False, "❌ 產險續保同步失敗，請稍後再試"
+
+
+def _sync_cases_to_site(line_user_id: str) -> tuple[bool, str]:
+    secret = os.environ.get("LINE_BRIDGE_SECRET", "")
+    if not secret:
+        return False, "系統尚未完成安全橋接設定"
+    rows = build_case_import_rows(get_db().get_all_cases())
+    status, data = post_json(
+        f"{SITE_BASE_URL}/api/cases/import",
+        secret,
+        {"lineUserId": line_user_id, "rows": rows},
+        timeout=30,
+    )
+    if 200 <= status < 300 and data.get("ok") is True:
+        return True, f"✅ 已同步 {int(data.get('count', len(rows)))} 筆既有申請紀錄到網站"
+    if status == 404:
+        return False, "❌ 此 LINE 尚未綁定網站，請先完成六位數綁定"
+    return False, "❌ 既有申請紀錄同步失敗，請稍後再試"
+
+
+def _sync_all_site_data(line_user_id: str) -> str:
+    messages = []
+    for sync in (_sync_renewals_to_site, _sync_cases_to_site):
+        try:
+            _, message = sync(line_user_id)
+        except Exception:
+            message = "❌ 同步發生錯誤，請稍後再輸入「同步網站」"
+        messages.append(message)
+    return "\n".join(messages)
+
+
+def _start_site_sync(line_user_id: str) -> None:
+    """Run Drive/Sheets imports after the webhook reply so LINE does not time out."""
+    def worker():
+        result = _sync_all_site_data(line_user_id)
+        try:
+            line_bot.push_message(line_user_id, TextSendMessage(text=result))
+        except Exception:
+            print("[WARN] 網站同步結果推播失敗", flush=True)
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def _confirm_site_binding(code: str, line_user_id: str) -> tuple[bool, str]:
@@ -294,7 +336,10 @@ def handle_message(event):
 
     binding_code = _extract_binding_code(text)
     if binding_code:
-        _, message = _confirm_site_binding(binding_code, user_id)
+        ok, message = _confirm_site_binding(binding_code, user_id)
+        if ok and _legacy_data_authorized(user_id):
+            message += "\n⏳ 正在匯入既有申請紀錄與產險續保，完成後會再通知你。"
+            _start_site_sync(user_id)
         line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
         return
 
@@ -315,13 +360,21 @@ def handle_message(event):
         line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
         return
 
+    if text == "同步網站":
+        line_bot.reply_message(
+            event.reply_token,
+            TextSendMessage(text="⏳ 正在同步既有申請紀錄與產險續保，完成後會再通知你。"),
+        )
+        _start_site_sync(user_id)
+        return
+
     # 對話暫存：先檢查是否在等待使用者補充資料
     # 若使用者輸入的是已知指令，取消等待直接執行
     _COMMANDS = {
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
         "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
-        "行程","本周行程","本月行程","新增行程","扣款失敗","同步續保",
+        "行程","本周行程","本月行程","新增行程","扣款失敗","同步續保","同步網站",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and get_db().get_pending(user_id):

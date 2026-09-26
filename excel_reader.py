@@ -22,6 +22,10 @@ LIFE_FILE     = "42003.xlsx"
 PROPERTY_FILE = "42004.xlsx"
 
 _POLICY_SUFFIX = re.compile(r"\d{7}")
+_EXCLUDED_LIFE_PRODUCTS = (
+    "個人旅行平安險",
+    "超級海外突發疾病醫療保險",
+)
 
 
 def get_creds():
@@ -114,13 +118,34 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
     wb = load_workbook(buf, read_only=True)
     ws = wb.active
     results = {}
+    current_policy = None
     for i, row in enumerate(ws.iter_rows(values_only=True), 1):
         if i < 8:
             continue
-        if not row or len(row) < 25:
+        if not row:
             continue
+
         policy_raw = safe_get(row, 0)
-        if not policy_raw or policy_raw.startswith("附約") or policy_raw == "保單號碼":
+        product = safe_get(row, 7)
+        company = safe_get(row, 2)
+        is_main_policy = bool(policy_raw and product and company not in {"對象", "保險公司"})
+
+        if not is_main_policy:
+            rider_code = safe_get(row, 11)
+            rider_product = safe_get(row, 14)
+            if current_policy is not None and rider_code and rider_product and rider_code != "附約":
+                current_policy.setdefault("riders", []).append({
+                    "code": rider_code,
+                    "product": rider_product,
+                    "term": safe_get(row, 20),
+                    "unit": safe_get(row, 22),
+                    "coverage_amount": safe_get(row, 24),
+                    "premium": safe_get(row, 25),
+                })
+            continue
+
+        current_policy = None
+        if any(excluded in product for excluded in _EXCLUDED_LIFE_PRODUCTS):
             continue
         insured   = safe_get(row, 21)
         applicant = safe_get(row, 19)
@@ -144,8 +169,6 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
                     if dob_date:
                         roc_y   = dob_date.year - 1911
                         dob_str = f"{roc_y}年{dob_date.month:02d}月{dob_date.day:02d}日"
-            print(f"[DOB] key={key!r} raw={dob_raw_val!r} result={dob_str!r}", flush=True)
-            print(f"[DOB_COLS] {[(i, row[i]) for i in range(18, min(35, len(row))) if row[i] is not None]}", flush=True)
             results[key] = {
                 "name": key,
                 "applicant": applicant if applicant != key else "",
@@ -155,15 +178,26 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
                 "addr": safe_get(row, 36),
                 "policies": [],
             }
-        existing = {p["policy_num"] for p in results[key]["policies"]}
+        existing = {p["policy_num"]: p for p in results[key]["policies"]}
         if policy_num not in existing:
-            results[key]["policies"].append({
+            current_policy = {
                 "type": "壽險",
-                "company": safe_get(row, 2),
+                "company": company,
                 "policy_num": policy_num,
-                "product": safe_get(row, 7),
+                "product": product,
+                "start_date": safe_get(row, 10),
+                "term": safe_get(row, 13),
+                "payment_frequency": safe_get(row, 15),
+                "coverage_amount": safe_get(row, 16),
+                "coverage_unit": "萬",
+                "premium": safe_get(row, 17),
+                "payment_method": safe_get(row, 18),
                 "status": safe_get(row, 32),
-            })
+                "riders": [],
+            }
+            results[key]["policies"].append(current_policy)
+        else:
+            current_policy = existing[policy_num]
     return list(results.values())
 
 

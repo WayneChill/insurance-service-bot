@@ -136,6 +136,14 @@ class SheetsDB:
             records = []
         return [r for r in records if r.get("客戶姓名") == name]
 
+    def get_all_cases(self) -> list:
+        """Return all legacy service cases for privacy-minimized site import."""
+        try:
+            return self._ws(WS_CASES).get_all_records()
+        except Exception as e:
+            print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
+            return []
+
     def get_all_pending_cases(self) -> list:
         ws = self._ws(WS_CASES)
         pending_statuses = {"已聯絡", "已送出", "核對中"}
