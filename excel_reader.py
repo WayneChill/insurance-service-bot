@@ -202,6 +202,8 @@ def parse_life_excel(buf: io.BytesIO, name: str) -> list:
 
 
 def parse_property_excel(buf: io.BytesIO, name: str) -> list:
+    product_map = _property_product_map(io.BytesIO(buf.getvalue()))
+    buf.seek(0)
     wb = load_workbook(buf, read_only=True)
     ws = wb.active
     results = {}
@@ -239,10 +241,34 @@ def parse_property_excel(buf: io.BytesIO, name: str) -> list:
                 "type": "產險",
                 "company": company,
                 "policy_num": policy_num,
-                "product": safe_get(row, 16),
+                "product": "、".join(product_map.get(policy_num, [])) or safe_get(row, 16),
                 "status": safe_get(row, 21),
             })
     return list(results.values())
+
+
+def _property_product_map(buf: io.BytesIO) -> dict[str, list[str]]:
+    """Map each 42004 main policy to the detailed products in its child table."""
+    wb = load_workbook(buf, read_only=True, data_only=True)
+    ws = wb.active
+    result: dict[str, list[str]] = {}
+    current_policy = ""
+    for i, row in enumerate(ws.iter_rows(values_only=True), 1):
+        if i < 5:
+            continue
+        policy_raw = safe_get(row, 1)
+        company_or_code = safe_get(row, 3)
+        insured_id = safe_get(row, 11)
+        if policy_raw and company_or_code and company_or_code != "險種代號" and insured_id:
+            current_policy = _clean_policy(policy_raw, safe_get(row, 18))
+            result.setdefault(current_policy, [])
+            continue
+        detail_name = safe_get(row, 5)
+        if current_policy and company_or_code and company_or_code != "險種代號" and detail_name:
+            if detail_name not in result[current_policy]:
+                result[current_policy].append(detail_name)
+    wb.close()
+    return result
 
 
 def search_client(name: str) -> list:
@@ -398,6 +424,8 @@ def get_property_renewal_rows(statuses: dict) -> list:
     import pandas as pd
 
     buf = download_excel(PROPERTY_FILE)
+    product_map = _property_product_map(io.BytesIO(buf.getvalue()))
+    buf.seek(0)
     df = pd.read_excel(buf, header=3)
     df.columns = df.columns.str.strip()
     df = df[df["保單號碼"].notna()]
@@ -441,7 +469,7 @@ def get_property_renewal_rows(statuses: dict) -> list:
             "sourceKey": f"42004:{digest}",
             "insuredName": first_value(row, ["被保姓名", "被保險人", "要保人"]) or "未命名",
             "insurer": first_value(row, ["保險公司", "公司名稱", "公司"]) or "未提供",
-            "product": first_value(row, ["險種類別", "險種名稱", "保險種類", "商品名稱"]),
+            "product": "、".join(product_map.get(policy, [])) or first_value(row, ["險別名稱", "險種類別", "險種名稱", "保險種類", "商品名稱"]),
             "vehicleMasked": mask_vehicle_number(first_value(row, ["車號", "牌照號碼", "車牌號碼"])),
             "policyMasked": mask_policy_number(policy),
             "expiryDate": expiry,
