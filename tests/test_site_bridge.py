@@ -6,6 +6,7 @@ from site_bridge import (
     mask_policy_number,
     mask_vehicle_number,
     validate_case_payload,
+    validate_legacy_case_status_payload,
 )
 
 
@@ -75,6 +76,22 @@ class SiteBridgeTests(unittest.TestCase):
         })
         self.assertNotIn("SECRET-POLICY", str(rows[0]))
         self.assertNotIn("medical details", str(rows[0]))
+
+    def test_legacy_case_status_update_is_minimal_and_allowlisted(self):
+        cleaned, error = validate_legacy_case_status_payload({
+            "lineUserId": "U12345678901234567890",
+            "sourceKey": "line-case:C001",
+            "status": "已完成",
+        })
+        self.assertIsNone(error)
+        self.assertEqual(cleaned["caseId"], "C001")
+
+        _, error = validate_legacy_case_status_payload({
+            "lineUserId": "U12345678901234567890",
+            "sourceKey": "line-case:C001",
+            "status": "自行輸入",
+        })
+        self.assertEqual(error, "INVALID_STATUS")
 
 
 if __name__ == "__main__":

@@ -49,7 +49,7 @@ from flex_message import (
     build_help_message
 )
 from scheduler import start_scheduler
-from site_bridge import bearer_authorized, build_case_import_rows, post_json, validate_case_payload
+from site_bridge import bearer_authorized, build_case_import_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
 
 app      = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -229,6 +229,23 @@ def site_sync_case():
         "created": created,
         "duplicate": not created,
     })
+
+
+@app.route("/api/site-sync/legacy-case-status", methods=["POST"])
+def site_sync_legacy_case_status():
+    """Update one owner-only legacy case after it is edited on the bound site."""
+    if not os.environ.get("LINE_BRIDGE_SECRET"):
+        return jsonify({"error": "BRIDGE_NOT_CONFIGURED"}), 503
+    if not _bridge_authorized():
+        return jsonify({"error": "FORBIDDEN"}), 403
+    payload, validation_error = validate_legacy_case_status_payload(request.get_json(silent=True))
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
+    if not _legacy_data_authorized(payload["lineUserId"]):
+        return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
+    if not get_db().update_case_status(payload["caseId"], payload["status"]):
+        return jsonify({"error": "CASE_NOT_FOUND"}), 404
+    return jsonify({"ok": True, "sourceKey": payload["sourceKey"], "status": payload["status"]})
 
 def _dashboard_authorized():
     expected = os.environ.get("DASHBOARD_API_KEY", "")

@@ -15,6 +15,7 @@ SENSITIVE_FIELD_FRAGMENTS = (
     "card", "credit", "expiry", "cvv", "idnumber", "identity",
     "bankaccount", "medical", "diagnosis", "accident", "pdf", "file",
 )
+LEGACY_CASE_STATUSES = {"已聯絡", "核對中", "已送出", "已完成"}
 
 
 def bearer_authorized(header: str, expected: str) -> bool:
@@ -60,6 +61,25 @@ def validate_case_payload(payload: Any) -> tuple[dict[str, Any] | None, str | No
     cleaned["createdAt"] = cleaned["createdAt"].strip()
     cleaned["status"] = cleaned["status"].strip()
     return cleaned, None
+
+
+def validate_legacy_case_status_payload(payload: Any) -> tuple[dict[str, str] | None, str | None]:
+    """Validate the minimal website-to-legacy-Sheet status update."""
+    if not isinstance(payload, dict):
+        return None, "INVALID_JSON"
+    if set(payload) != {"lineUserId", "sourceKey", "status"}:
+        return None, "UNKNOWN_FIELD"
+    line_user_id = str(payload.get("lineUserId", "")).strip()
+    source_key = str(payload.get("sourceKey", "")).strip()
+    status = str(payload.get("status", "")).strip()
+    if not re.fullmatch(r"U[0-9A-Za-z]{20,64}", line_user_id):
+        return None, "INVALID_LINE_USER_ID"
+    match = re.fullmatch(r"line-case:(C\d{3,})", source_key)
+    if not match:
+        return None, "INVALID_SOURCE_KEY"
+    if status not in LEGACY_CASE_STATUSES:
+        return None, "INVALID_STATUS"
+    return {"lineUserId": line_user_id, "sourceKey": source_key, "caseId": match.group(1), "status": status}, None
 
 
 def post_json(url: str, bearer_secret: str, payload: dict[str, Any], timeout: int = 12) -> tuple[int, dict[str, Any]]:
