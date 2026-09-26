@@ -103,3 +103,27 @@ def mask_vehicle_number(value: Any) -> str:
         return ""
     tail = text[-4:]
     return f"***-{tail}"
+
+
+def build_case_import_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reduce legacy service cases to the site's allowlisted metadata schema."""
+    rows = []
+    for record in records[:1000]:
+        case_id = str(record.get("案件ID", "")).strip()
+        name = str(record.get("客戶姓名", "")).strip()[:80]
+        status = str(record.get("狀態", "")).strip()[:160]
+        created_at = str(record.get("建立時間", "")).strip()[:160]
+        if not case_id or not name or not status or not created_at:
+            continue
+        service_type = str(record.get("服務項目", "")).strip()
+        company = str(record.get("保險公司", "")).strip()
+        insurers = [value.strip()[:80] for value in re.split(r"[、,，/]+", company) if value.strip()]
+        rows.append({
+            "sourceKey": f"line-case:{case_id[:120]}",
+            "documentType": "cardAuth" if "信用卡" in service_type else "claim",
+            "customerDisplayName": name,
+            "insurers": insurers[:20],
+            "createdAt": created_at,
+            "status": status,
+        })
+    return rows
