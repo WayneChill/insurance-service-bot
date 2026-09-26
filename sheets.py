@@ -26,6 +26,7 @@ WS_NEWCASE  = "新契約追蹤"
 WS_SCHEDULE = "行程"
 WS_PENDING  = "待確認狀態"
 WS_PAYMENT  = "扣款失敗"
+WS_SITE_CASES = "網站案件同步"
 
 BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
 RECRUIT_STAGES  = ["已聯繫", "約聊聊", "約簽約"]
@@ -104,6 +105,12 @@ class SheetsDB:
         if WS_PAYMENT not in existing:
             ws = self.spreadsheet.add_worksheet(WS_PAYMENT, rows=1000, cols=10)
             ws.append_row(["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "保費", "狀態", "備註", "更新時間"])
+        if WS_SITE_CASES not in existing:
+            ws = self.spreadsheet.add_worksheet(WS_SITE_CASES, rows=2000, cols=10)
+            ws.append_row([
+                "LINE User ID", "去重複鍵", "網站案件ID", "文件類型", "客戶顯示名稱",
+                "保險公司", "網站建立時間", "狀態", "接收時間", "已通知",
+            ])
 
     def _ws(self, name):
         return self.spreadsheet.worksheet(name)
@@ -469,6 +476,34 @@ class SheetsDB:
         start = today.replace(day=1).strftime("%Y/%m/%d")
         end = today.replace(day=last_day).strftime("%Y/%m/%d")
         return self.get_schedule_by_range(start, end)
+
+    # ══ 網站案件同步（只保存必要中繼資料） ══
+    def upsert_site_case(self, payload: dict) -> tuple[bool, bool]:
+        """Return (created, already_notified), keyed by LINE user + idempotency key."""
+        ws = self._ws(WS_SITE_CASES)
+        records = ws.get_all_records()
+        for row in records:
+            if (str(row.get("LINE User ID", "")) == payload["lineUserId"] and
+                    str(row.get("去重複鍵", "")) == payload["idempotencyKey"]):
+                notified = str(row.get("已通知", "")).strip().lower() in {"true", "1", "yes", "是"}
+                return False, notified
+        ws.append_row([
+            payload["lineUserId"], payload["idempotencyKey"], payload["caseId"],
+            payload["documentType"], payload.get("customerDisplayName", ""),
+            json.dumps(payload.get("insurers", []), ensure_ascii=False),
+            payload["createdAt"], payload["status"], _now(), "FALSE",
+        ])
+        return True, False
+
+    def mark_site_case_notified(self, line_user_id: str, idempotency_key: str) -> bool:
+        ws = self._ws(WS_SITE_CASES)
+        records = ws.get_all_records()
+        for index, row in enumerate(records, start=2):
+            if (str(row.get("LINE User ID", "")) == line_user_id and
+                    str(row.get("去重複鍵", "")) == idempotency_key):
+                ws.update_cell(index, 10, "TRUE")
+                return True
+        return False
 
     # ══ 產險狀態 ══
     def get_property_status(self) -> dict:
