@@ -7,6 +7,7 @@ import os
 import json
 import hmac
 import re
+import unicodedata
 from urllib.parse import unquote
 from datetime import datetime
 from flask import Flask, request, abort, jsonify, make_response
@@ -138,6 +139,17 @@ def _confirm_site_binding(code: str, line_user_id: str) -> tuple[bool, str]:
     if status == 403:
         return False, "❌ 網站與 LINE Bot 的安全設定不一致"
     return False, "❌ 暫時無法完成綁定，請稍後再試"
+
+
+def _extract_binding_code(message: str) -> str | None:
+    """Accept common LINE input variants for a six-digit one-time binding code."""
+    normalized = unicodedata.normalize("NFKC", message or "").strip()
+    match = re.fullmatch(r"綁定\s*[:：-]?\s*(\d{6})", normalized)
+    if match:
+        return match.group(1)
+    if re.fullmatch(r"\d{6}", normalized):
+        return normalized
+    return None
 
 
 @app.route("/api/site-sync/cases", methods=["POST"])
@@ -280,9 +292,9 @@ def handle_message(event):
     text    = event.message.text.strip()
     user_id = event.source.user_id
 
-    binding_match = re.fullmatch(r"綁定\s+(\d{6})", text)
-    if binding_match:
-        _, message = _confirm_site_binding(binding_match.group(1), user_id)
+    binding_code = _extract_binding_code(text)
+    if binding_code:
+        _, message = _confirm_site_binding(binding_code, user_id)
         line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
         return
 
