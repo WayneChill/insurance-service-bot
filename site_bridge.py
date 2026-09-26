@@ -138,9 +138,10 @@ def build_case_import_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]
         service_type = str(record.get("服務項目", "")).strip()
         company = str(record.get("保險公司", "")).strip()
         insurers = [value.strip()[:80] for value in re.split(r"[、,，/]+", company) if value.strip()]
+        document_type = "cardAuth" if "信用卡" in service_type else (service_type[:24] or "保服")
         rows.append({
             "sourceKey": f"line-case:{case_id[:120]}",
-            "documentType": "cardAuth" if "信用卡" in service_type else "claim",
+            "documentType": document_type,
             "customerDisplayName": name,
             "insurers": insurers[:20],
             "createdAt": created_at,

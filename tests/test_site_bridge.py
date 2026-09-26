@@ -77,6 +77,13 @@ class SiteBridgeTests(unittest.TestCase):
         self.assertNotIn("SECRET-POLICY", str(rows[0]))
         self.assertNotIn("medical details", str(rows[0]))
 
+    def test_case_import_preserves_legacy_service_type(self):
+        rows = build_case_import_rows([{
+            "案件ID": "C002", "客戶姓名": "王小明", "服務項目": "契變",
+            "狀態": "核對中", "建立時間": "2026/09/26 10:00", "保險公司": "",
+        }])
+        self.assertEqual(rows[0]["documentType"], "契變")
+
     def test_legacy_case_status_update_is_minimal_and_allowlisted(self):
         cleaned, error = validate_legacy_case_status_payload({
             "lineUserId": "U12345678901234567890",
