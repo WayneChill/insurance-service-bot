@@ -6,6 +6,7 @@ Railway 部署：insurance-service-bot 專案（主）
 import os
 import json
 import hmac
+import re
 from urllib.parse import unquote
 from datetime import datetime
 from flask import Flask, request, abort, jsonify, make_response
@@ -46,8 +47,10 @@ from flex_message import (
     build_help_message
 )
 from scheduler import start_scheduler
+from site_bridge import bearer_authorized, post_json, validate_case_payload
 
 app      = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 line_bot = LineBotApi(os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
 handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
@@ -81,6 +84,97 @@ DASHBOARD_ORIGIN = os.environ.get(
     "DASHBOARD_ORIGIN",
     "https://claims-assistant.waynechiuchiu.chatgpt.site"
 )
+SITE_BASE_URL = os.environ.get(
+    "SITE_BASE_URL",
+    "https://claims-assistant.waynechiuchiu.chatgpt.site"
+).rstrip("/")
+
+
+def _bridge_authorized():
+    return bearer_authorized(
+        request.headers.get("Authorization", ""),
+        os.environ.get("LINE_BRIDGE_SECRET", ""),
+    )
+
+
+def _legacy_data_authorized(line_user_id: str) -> bool:
+    """Legacy Sheets/42004 data belongs only to the configured owner."""
+    owner = os.environ.get("LINE_USER_ID", "").strip()
+    return bool(owner) and hmac.compare_digest(line_user_id, owner)
+
+
+def _sync_renewals_to_site(line_user_id: str) -> tuple[bool, str]:
+    secret = os.environ.get("LINE_BRIDGE_SECRET", "")
+    if not secret:
+        return False, "系統尚未完成安全橋接設定"
+    from excel_reader import get_property_renewal_rows
+    rows = get_property_renewal_rows(get_db().get_property_status())
+    status, data = post_json(
+        f"{SITE_BASE_URL}/api/renewals/import",
+        secret,
+        {"lineUserId": line_user_id, "rows": rows[:1000]},
+        timeout=30,
+    )
+    if 200 <= status < 300 and data.get("ok") is True:
+        return True, f"✅ 已同步 {int(data.get('count', len(rows)))} 筆產險續保資料到網站"
+    if status == 404:
+        return False, "❌ 此 LINE 尚未綁定網站，請先完成六位數綁定"
+    return False, "❌ 產險續保同步失敗，請稍後再試"
+
+
+def _confirm_site_binding(code: str, line_user_id: str) -> tuple[bool, str]:
+    secret = os.environ.get("LINE_BRIDGE_SECRET", "")
+    if not secret:
+        return False, "系統尚未完成安全橋接設定"
+    status, data = post_json(
+        f"{SITE_BASE_URL}/api/line/binding-confirm",
+        secret,
+        {"code": code, "lineUserId": line_user_id, "displayName": ""},
+    )
+    if 200 <= status < 300 and data.get("ok") is True:
+        return True, "✅ LINE Bot 已與你的網站資料空間連結"
+    if status == 400:
+        return False, "❌ 綁定碼錯誤、已使用或已過期，請回網站重新產生"
+    if status == 403:
+        return False, "❌ 網站與 LINE Bot 的安全設定不一致"
+    return False, "❌ 暫時無法完成綁定，請稍後再試"
+
+
+@app.route("/api/site-sync/cases", methods=["POST"])
+def site_sync_case():
+    """Receive one metadata-only case from the site and notify its bound LINE user."""
+    if not os.environ.get("LINE_BRIDGE_SECRET"):
+        return jsonify({"error": "BRIDGE_NOT_CONFIGURED"}), 503
+    if not _bridge_authorized():
+        return jsonify({"error": "FORBIDDEN"}), 403
+
+    payload, validation_error = validate_case_payload(request.get_json(silent=True))
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
+
+    created, notified = get_db().upsert_site_case(payload)
+    if not notified:
+        document_label = "理賠申請書" if payload["documentType"] == "claim" else "信用卡授權書"
+        insurer_text = "、".join(payload["insurers"]) or "未指定"
+        message = (
+            f"📄 網站案件同步\n"
+            f"類型：{document_label}\n"
+            f"客戶：{payload['customerDisplayName'] or '未命名'}\n"
+            f"保險公司：{insurer_text}\n"
+            f"狀態：{payload['status']}"
+        )
+        try:
+            line_bot.push_message(payload["lineUserId"], TextSendMessage(text=message))
+            get_db().mark_site_case_notified(payload["lineUserId"], payload["idempotencyKey"])
+        except Exception:
+            return jsonify({"error": "LINE_NOTIFICATION_FAILED", "caseId": payload["caseId"]}), 502
+
+    return jsonify({
+        "ok": True,
+        "caseId": payload["caseId"],
+        "created": created,
+        "duplicate": not created,
+    })
 
 def _dashboard_authorized():
     expected = os.environ.get("DASHBOARD_API_KEY", "")
@@ -101,6 +195,8 @@ def _dashboard_cors(response):
 @app.route("/api/dashboard/<resource>", methods=["GET", "OPTIONS"])
 @app.route("/api/dashboard/<resource>/<record_id>", methods=["PATCH", "DELETE", "OPTIONS"])
 def dashboard_api(resource, record_id=None):
+    if os.environ.get("ENABLE_LEGACY_DASHBOARD", "").lower() != "true":
+        return jsonify({"error": "legacy dashboard disabled"}), 404
     if request.method == "OPTIONS":
         return make_response("", 204)
     if not os.environ.get("DASHBOARD_API_KEY"):
@@ -184,13 +280,36 @@ def handle_message(event):
     text    = event.message.text.strip()
     user_id = event.source.user_id
 
+    binding_match = re.fullmatch(r"綁定\s+(\d{6})", text)
+    if binding_match:
+        _, message = _confirm_site_binding(binding_match.group(1), user_id)
+        line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
+        return
+
+    # The existing Google Sheet and 42004 file are single-owner data sources.
+    # Other users may bind and receive their own site notifications, but cannot query them.
+    if not _legacy_data_authorized(user_id):
+        line_bot.reply_message(
+            event.reply_token,
+            TextSendMessage(text="此 LINE Bot 的既有保單資料尚未為你的帳號開通。你仍可使用「綁定 123456」連結網站。"),
+        )
+        return
+
+    if text == "同步續保":
+        try:
+            _, message = _sync_renewals_to_site(user_id)
+        except Exception:
+            message = "❌ 產險續保同步失敗，請稍後再試"
+        line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
+        return
+
     # 對話暫存：先檢查是否在等待使用者補充資料
     # 若使用者輸入的是已知指令，取消等待直接執行
     _COMMANDS = {
         "查詢","進度","早報","待辦","產險","壽險","新契約","銷售","增員",
         "新增新件","新增銷售","新增增員","新增卡片","刪除卡片","新增保服",
         "記錄","更新銷售","更新準增","更新新件","指令","使用說明","保服","新件",
-        "行程","本周行程","本月行程","新增行程","扣款失敗",
+        "行程","本周行程","本月行程","新增行程","扣款失敗","同步續保",
     }
     first_word = text.split()[0] if text.split() else ""
     if first_word in _COMMANDS and get_db().get_pending(user_id):

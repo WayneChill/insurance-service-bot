@@ -163,3 +163,19 @@ ngrok http 5000
 | v1.2.0 | 2026/03/29 | 業務追蹤更名為銷售追蹤，早報同步更新 |
 | v1.1.0 | 2026/03/29 | 卡片字體放大、產險卡片按鈕換色、保服卡片顯示優化 |
 | v1.0.0 | 2026/03/28 | 初始版本，合併產險助手＋保服助手 |
+
+## 保險業務平台安全橋接
+
+Railway 端新增：
+
+- `SITE_BASE_URL=https://claims-assistant.waynechiuchiu.chatgpt.site`
+- `LINE_BRIDGE_SECRET`：與網站端相同的高強度隨機值
+- 網站端另需設定 `BINDING_CODE_PEPPER` 與 `LINE_SYNC_ENDPOINT`
+
+功能：
+
+- LINE 輸入 `綁定 123456`，以 LINE webhook 驗證取得的 user ID 確認網站一次性綁定碼。
+- 網站呼叫 `POST /api/site-sync/cases` 後，只保存案件必要中繼資料，並推播給該 LINE user。
+- 原始 42004 的擁有者可輸入 `同步續保`，把 60 天內資料遮罩後送到自己綁定的網站空間。
+- 舊版 `/api/dashboard/*` 預設停用，避免瀏覽器共用金鑰讀取整份資料。
+- 現有 Google Sheet 與 42004 是單一擁有者資料源；非 `LINE_USER_ID` 使用者不能查詢。其他使用者仍可綁定並接收自己從網站建立的案件通知。

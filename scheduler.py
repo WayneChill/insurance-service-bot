@@ -14,7 +14,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from excel_reader import (
     get_life_daily_stats,
     get_property_daily_stats,
+    get_property_renewal_rows,
 )
+from site_bridge import post_json
 
 
 # ── 每日早報文字 ──────────────────────────────────────────
@@ -225,6 +227,26 @@ def run_evening(db):
         print(f"[排程] 晚間待辦失敗：{e}")
         traceback.print_exc()
       
+def _sync_property_renewals(db, line_user_id: str):
+    secret = os.environ.get("LINE_BRIDGE_SECRET", "")
+    site_base = os.environ.get(
+        "SITE_BASE_URL", "https://claims-assistant.waynechiuchiu.chatgpt.site"
+    ).rstrip("/")
+    if not secret or not line_user_id:
+        return
+    rows = get_property_renewal_rows(db.get_property_status())
+    status, data = post_json(
+        f"{site_base}/api/renewals/import",
+        secret,
+        {"lineUserId": line_user_id, "rows": rows[:1000]},
+        timeout=30,
+    )
+    if 200 <= status < 300 and data.get("ok") is True:
+        print(f"[排程] 產險續保同步成功，共 {int(data.get('count', len(rows)))} 筆")
+    else:
+        print(f"[排程] 產險續保同步失敗，HTTP {status or 'network'}")
+
+
 # ── 主排程任務 ────────────────────────────────────────────
 
 def run_daily(db):
@@ -259,6 +281,11 @@ def run_daily(db):
         import traceback
         print(f"[排程] 早報發送失敗：{e}")
         traceback.print_exc()
+
+    try:
+        _sync_property_renewals(db, user_id)
+    except Exception as e:
+        print(f"[排程] 產險續保同步失敗：{type(e).__name__}")
 
 
 # ── 啟動排程 ──────────────────────────────────────────────

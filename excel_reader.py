@@ -356,6 +356,66 @@ def get_life_daily_detail() -> dict:
     except Exception as e:
         print(f"[WARN] 壽險詳細名單失敗: {e}")
     return result
+
+
+def get_property_renewal_rows(statuses: dict) -> list:
+    """Return privacy-minimized 60-day renewal rows for the site bridge."""
+    import hashlib
+    import pandas as pd
+
+    buf = download_excel(PROPERTY_FILE)
+    df = pd.read_excel(buf, header=3)
+    df.columns = df.columns.str.strip()
+    df = df[df["保單號碼"].notna()]
+    df = df[~df["保單號碼"].astype(str).str.contains("險種代號|附約")]
+
+    def roc_date(value):
+        try:
+            raw = str(int(value)).zfill(7)
+            return pd.Timestamp(int(raw[:3]) + 1911, int(raw[3:5]), int(raw[5:7]))
+        except Exception:
+            return pd.NaT
+
+    def first_value(row, names):
+        for name in names:
+            if name in row.index and pd.notna(row[name]):
+                value = str(row[name]).strip()
+                if value and value.lower() != "nan":
+                    return value
+        return ""
+
+    from site_bridge import mask_policy_number, mask_vehicle_number
+    df["到期日"] = df["保險迄日"].apply(roc_date)
+    today = pd.Timestamp(datetime.today().date())
+    df["剩餘天數"] = (df["到期日"] - today).dt.days
+    active = df[
+        df["剩餘天數"].notna()
+        & df["剩餘天數"].between(0, 60)
+        & df["狀態"].astype(str).str.contains("正常")
+    ].copy().sort_values("剩餘天數")
+
+    rows = []
+    skip = {"續保完成", "不續保"}
+    for _, row in active.iterrows():
+        policy = str(row["保單號碼"]).strip()
+        current = statuses.get(policy, {}).get("status", "")
+        if current in skip:
+            continue
+        expiry = row["到期日"].strftime("%Y-%m-%d")
+        digest = hashlib.sha256(f"{policy}|{expiry}".encode("utf-8")).hexdigest()[:24]
+        rows.append({
+            "sourceKey": f"42004:{digest}",
+            "insuredName": first_value(row, ["被保姓名", "被保險人", "要保人"]) or "未命名",
+            "insurer": first_value(row, ["保險公司", "公司名稱", "公司"]) or "未提供",
+            "product": first_value(row, ["險種類別", "險種名稱", "保險種類", "商品名稱"]),
+            "vehicleMasked": mask_vehicle_number(first_value(row, ["車號", "牌照號碼", "車牌號碼"])),
+            "policyMasked": mask_policy_number(policy),
+            "expiryDate": expiry,
+            "status": current or "待處理",
+        })
+    return rows
+
+
 def get_property_daily_stats(statuses: dict) -> dict:
     """
     從 42004.xlsx 計算急件/追蹤/新件，再加上 Sheets 內的延後件數
