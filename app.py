@@ -59,14 +59,16 @@ handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
 # ── DB（啟動時背景初始化，確保排程器能準時執行）─────────
 _db = None
+_scheduler = None
 
 def get_db():
-    global _db
+    global _db, _scheduler
     if _db is None:
         print("[DB] 初始化 SheetsDB...", flush=True)
         _db = SheetsDB()
         print("[DB] 完成，啟動排程", flush=True)
-        start_scheduler(_db)
+        # 保留常駐參照，避免背景排程器在長時間無請求時被回收。
+        _scheduler = start_scheduler(_db)
     return _db
 
 def _startup_init():

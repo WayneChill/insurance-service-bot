@@ -248,14 +248,15 @@ def _sync_property_renewals(db, line_user_id: str):
 
 
 def _sync_judgments():
-    """台灣時間凌晨 02:00 呼叫網站，由網站向司法院抓取每日異動。"""
+    """在司法院服務時段呼叫網站，由網站抓取官方每日異動。"""
+    print(f"[排程] 開始判決同步 {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC", flush=True)
     secret = os.environ.get("JUDICIAL_SYNC_SECRET", "")
     site_base = os.environ.get(
         "SITE_BASE_URL", "https://claims-assistant.waynechiuchiu.chatgpt.site"
     ).rstrip("/")
     if not secret:
-        print("[排程] 尚未設定 JUDICIAL_SYNC_SECRET，跳過判決同步")
-        return
+        print("[排程] 尚未設定 JUDICIAL_SYNC_SECRET，跳過判決同步", flush=True)
+        return False
     status, data = post_json(
         f"{site_base}/api/judgments/sync",
         secret,
@@ -263,9 +264,16 @@ def _sync_judgments():
         timeout=240,
     )
     if 200 <= status < 300 and data.get("ok") is True:
-        print(f"[排程] 判決同步成功，更新 {int(data.get('upserted', 0))} 筆、移除 {int(data.get('removed', 0))} 筆")
+        print(
+            f"[排程] 判決同步成功，租戶 {int(data.get('tenants', 0))} 個、"
+            f"更新 {int(data.get('upserted', 0))} 筆、移除 {int(data.get('removed', 0))} 筆",
+            flush=True,
+        )
+        return True
     else:
-        print(f"[排程] 判決同步失敗，HTTP {status or 'network'}")
+        reason = str(data.get("message") or data.get("error") or "未提供原因")[:160]
+        print(f"[排程] 判決同步失敗，HTTP {status or 'network'}：{reason}", flush=True)
+        return False
 
 
 # ── 主排程任務 ────────────────────────────────────────────
@@ -317,8 +325,19 @@ def start_scheduler(db):
     # UTC 00:00 = 台灣時間 08:00
     scheduler.add_job(run_daily, "cron", hour=0, minute=0, args=[db])
     scheduler.add_job(run_evening, "cron", hour=12, minute=0, args=[db])
-    # UTC 18:00 = 台灣時間翌日 02:00，位於司法院 API 00:00–06:00 開放時段。
-    scheduler.add_job(_sync_judgments, "cron", hour=18, minute=0)
+    # 司法院 API 僅於台灣時間 00:00–06:00 開放。安排三次補跑，避免單一時間點漏執行。
+    # UTC 16:10 / 18:10 / 20:10 = 台灣時間 00:10 / 02:10 / 04:10。
+    scheduler.add_job(
+        _sync_judgments,
+        "cron",
+        hour="16,18,20",
+        minute=10,
+        id="judgment_sync",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=1800,
+    )
     scheduler.start()
-    print("[排程] APScheduler 已啟動；判決同步每日台灣時間 02:00 執行")
+    print("[排程] APScheduler 已啟動；判決同步每日台灣時間 00:10、02:10、04:10 補跑", flush=True)
     return scheduler
