@@ -257,15 +257,17 @@ def _sync_judgments():
     if not secret:
         print("[排程] 尚未設定 JUDICIAL_SYNC_SECRET，跳過判決同步", flush=True)
         return False
+    utc_hour = datetime.utcnow().hour
+    page = {16: 0, 18: 1, 20: 2}.get(utc_hour, 0)
     status, data = post_json(
         f"{site_base}/api/judgments/sync",
         secret,
-        {},
+        {"page": page},
         timeout=240,
     )
     if 200 <= status < 300 and data.get("ok") is True:
         print(
-            f"[排程] 判決同步成功，租戶 {int(data.get('tenants', 0))} 個、"
+            f"[排程] 判決同步成功，第 {int(data.get('page', page)) + 1} 批、租戶 {int(data.get('tenants', 0))} 個、"
             f"清單 {int(data.get('listed', 0))} 筆、讀取 {int(data.get('fetched', 0))} 筆、"
             f"保險判決 {int(data.get('upserted', 0))} 筆、移除 {int(data.get('removed', 0))} 筆",
             flush=True,
