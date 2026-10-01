@@ -266,7 +266,8 @@ def _sync_judgments():
     if 200 <= status < 300 and data.get("ok") is True:
         print(
             f"[排程] 判決同步成功，租戶 {int(data.get('tenants', 0))} 個、"
-            f"更新 {int(data.get('upserted', 0))} 筆、移除 {int(data.get('removed', 0))} 筆",
+            f"清單 {int(data.get('listed', 0))} 筆、讀取 {int(data.get('fetched', 0))} 筆、"
+            f"保險判決 {int(data.get('upserted', 0))} 筆、移除 {int(data.get('removed', 0))} 筆",
             flush=True,
         )
         return True
