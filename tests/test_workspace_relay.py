@@ -71,7 +71,7 @@ class WorkspaceRelayTests(unittest.TestCase):
                 db.reset_mock()
                 response = client.post('/api/site-sync/legacy-case-status', json={"lineUserId": "U" + "a" * 32, "sourceKey": key, "status": state}, headers={"Authorization": "Bearer test"})
                 self.assertEqual(response.status_code, 200)
-                getattr(db.return_value, method).assert_called_once_with(key.split(":")[1], state)
+                db.return_value.update_site_application_status.assert_called_once_with(key, state)
                 db.return_value.update_case_status.assert_not_called()
 
 

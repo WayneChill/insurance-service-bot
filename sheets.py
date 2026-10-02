@@ -9,6 +9,9 @@ sheets.py ── 統一 Google Sheets 存取層
 import os
 import json
 import base64
+import re
+import threading
+import uuid
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
@@ -27,6 +30,37 @@ WS_SCHEDULE = "行程"
 WS_PENDING  = "待確認狀態"
 WS_PAYMENT  = "扣款失敗"
 WS_SITE_CASES = "網站案件同步"
+SITE_SYNC_FIELD = "網站同步識別"
+SITE_SYNC_LOCK = threading.RLock()
+
+
+def ensure_site_sync_keys(ws, records: list, kind: str, id_field: str) -> list:
+    """Persist a separate row identity without changing existing IDs or customer fields."""
+    pattern = re.compile(rf"{re.escape(kind)}:[\w-]{{1,80}}(?::[0-9a-f]{{32}})?")
+    reserved = {str(r.get(SITE_SYNC_FIELD, "")).strip() for r in records}
+    seen, changes = set(), []
+    for index, record in enumerate(records, start=2):
+        rid = str(record.get(id_field, "")).strip()
+        if not re.fullmatch(r"[\w-]{1,80}", rid):
+            continue
+        key = str(record.get(SITE_SYNC_FIELD, "")).strip()
+        if not pattern.fullmatch(key) or key in seen:
+            base = f"{kind}:{rid}"
+            key = base if base not in reserved and base not in seen else f"{base}:{uuid.uuid4().hex}"
+            changes.append((index, key))
+        record[SITE_SYNC_FIELD] = key
+        seen.add(key)
+    if changes:
+        headers = ws.row_values(1)
+        column = headers.index(SITE_SYNC_FIELD) + 1 if SITE_SYNC_FIELD in headers else len(headers) + 1
+        if column > ws.col_count:
+            ws.add_cols(column - ws.col_count)
+        writes = []
+        if SITE_SYNC_FIELD not in headers:
+            writes.append({"range": gspread.utils.rowcol_to_a1(1, column), "values": [[SITE_SYNC_FIELD]]})
+        writes.extend({"range": gspread.utils.rowcol_to_a1(row, column), "values": [[key]]} for row, key in changes)
+        ws.batch_update(writes, value_input_option="RAW")
+    return records
 
 BIZ_STAGES      = ["已聯繫", "建議書", "約簽約", "送保單"]
 RECRUIT_STAGES  = ["已聯繫", "約聊聊", "約簽約"]
@@ -595,6 +629,40 @@ class SheetsDB:
                 return
 
     # ══ 扣款失敗追蹤 ══
+    def get_application_sync_sources(self):
+        # One worker, with a lock shared by request and background sync threads.
+        with SITE_SYNC_LOCK:
+            sources = []
+            for sheet, kind, id_field in [(WS_CASES, "line-case", "案件ID"), (WS_NEWCASE, "line-newcase", "ID"), (WS_PAYMENT, "line-payment", "ID")]:
+                ws = self._ws(sheet)
+                records = read_payment_records(ws) if sheet == WS_PAYMENT else ws.get_all_records()
+                sources.append(ensure_site_sync_keys(ws, records, kind, id_field))
+            return sources
+
+    def update_site_application_status(self, source_key: str, status: str) -> bool:
+        kind = source_key.split(":", 1)[0]
+        config = {
+            "line-case": (WS_CASES, "案件ID", 5, 8),
+            "line-newcase": (WS_NEWCASE, "ID", 4, 7),
+            "line-payment": (WS_PAYMENT, "ID", 8, 10),
+        }
+        if kind not in config:
+            return False
+        sheet, id_field, status_column, updated_column = config[kind]
+        with SITE_SYNC_LOCK:
+            ws = self._ws(sheet)
+            records = read_payment_records(ws) if sheet == WS_PAYMENT else ws.get_all_records()
+            records = ensure_site_sync_keys(ws, records, kind, id_field)
+            matches = [i for i, r in enumerate(records, start=2) if r.get(SITE_SYNC_FIELD) == source_key]
+            if len(matches) != 1:
+                return False
+            index = matches[0]
+            ws.batch_update([
+                {"range": gspread.utils.rowcol_to_a1(index, status_column), "values": [[status]]},
+                {"range": gspread.utils.rowcol_to_a1(index, updated_column), "values": [[_now()]]},
+            ], value_input_option="RAW")
+            return True
+
     def get_payment_failures(self, include_completed: bool = False, strict: bool = False) -> list:
         ws = self._ws(WS_PAYMENT)
         try:
