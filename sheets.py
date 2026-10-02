@@ -49,6 +49,18 @@ def _get_creds():
     return Credentials.from_service_account_info(info, scopes=SCOPES)
 
 
+def read_payment_records(ws) -> list:
+    """Ignore unnamed formatting columns without discarding rows or shifting row IDs."""
+    values = ws.get_all_values()
+    if not values:
+        return []
+    headers = [str(value).strip() for value in values[0]]
+    named = [name for name in headers if name]
+    if len(named) != len(set(named)) or not {'ID', '要保人', '狀態'}.issubset(named):
+        raise ValueError('PAYMENT_HEADERS_INVALID')
+    return [{name: row[index] if index < len(row) else '' for index, name in enumerate(headers) if name} for row in values[1:]]
+
+
 class SheetsDB:
     """單例式 Google Sheets 連線（app 啟動時初始化一次）"""
 
@@ -586,7 +598,7 @@ class SheetsDB:
     def get_payment_failures(self, include_completed: bool = False, strict: bool = False) -> list:
         ws = self._ws(WS_PAYMENT)
         try:
-            records = ws.get_all_records()
+            records = read_payment_records(ws)
         except Exception as e:
             if strict:
                 raise
@@ -597,7 +609,7 @@ class SheetsDB:
     def update_payment_status(self, row_id: str, status: str) -> bool:
         ws = self._ws(WS_PAYMENT)
         try:
-            records = ws.get_all_records()
+            records = read_payment_records(ws)
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             records = []
@@ -611,7 +623,7 @@ class SheetsDB:
     def add_payment_note(self, row_id: str, note: str) -> str:
         ws = self._ws(WS_PAYMENT)
         try:
-            records = ws.get_all_records()
+            records = read_payment_records(ws)
         except Exception as e:
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             records = []
