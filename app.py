@@ -50,6 +50,7 @@ from flex_message import (
 )
 from scheduler import start_scheduler
 from site_bridge import bearer_authorized, build_case_import_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
+from workspace_relay import private_user_id, workspace_request, has_workspace
 
 app      = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -182,6 +183,8 @@ def _confirm_site_binding(code: str, line_user_id: str) -> tuple[bool, str]:
         return False, "❌ 綁定碼錯誤、已使用或已過期，請回網站重新產生"
     if status == 403:
         return False, "❌ 網站與 LINE Bot 的安全設定不一致"
+    if status == 409:
+        return False, "此 LINE 已綁定另一個工作台帳號，請使用原本的帳號登入工作台。"
     return False, "❌ 暫時無法完成綁定，請稍後再試"
 
 
@@ -208,6 +211,12 @@ def site_sync_case():
     if validation_error:
         return jsonify({"error": validation_error}), 400
 
+    status, verified = workspace_request(payload["lineUserId"], "verifyCase", caseId=payload["caseId"])
+    if status != 200 or not verified.get("ok"):
+        return jsonify({"error": "CASE_OR_BINDING_NOT_FOUND"}), 403
+    if not _legacy_data_authorized(payload["lineUserId"]):
+        # The tenant's site DB already holds this record. Never copy it to the owner's Sheet.
+        return jsonify({"ok": True, "caseId": payload["caseId"], "notification": "on_demand"})
     created, notified = get_db().upsert_site_case(payload)
     if not notified:
         document_label = "理賠申請書" if payload["documentType"] == "claim" else "信用卡授權書"
@@ -243,7 +252,7 @@ def site_sync_legacy_case_status():
     payload, validation_error = validate_legacy_case_status_payload(request.get_json(silent=True))
     if validation_error:
         return jsonify({"error": validation_error}), 400
-    if not _legacy_data_authorized(payload["lineUserId"]):
+    if not _legacy_data_authorized(payload["lineUserId"]) or not has_workspace(payload["lineUserId"]):
         return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
     if not get_db().update_case_status(payload["caseId"], payload["status"]):
         return jsonify({"error": "CASE_NOT_FOUND"}), 404
@@ -336,7 +345,6 @@ def dashboard_api(resource, record_id=None):
 def callback():
     signature = request.headers.get("X-Line-Signature", "")
     body      = request.get_data(as_text=True)
-    print("RECV", body[:80], flush=True)
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -344,14 +352,39 @@ def callback():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return str(e), 500
+        return "Webhook processing failed", 500
     return "OK"
 
 # ── 文字訊息處理 ──────────────────────────────────────────
+def _workspace_reply(event, action):
+    user_id = private_user_id(event)
+    if not user_id:
+        _reply_text(event, "請在與 Bot 的一對一聊天室操作，群組不提供個人資料查詢。")
+        return
+    values = {"eventId": getattr(event, "webhook_event_id", None) or getattr(getattr(event, "message", None), "id", "")}
+    if action == "message":
+        values["text"] = event.message.text
+    else:
+        values["data"] = event.postback.data
+    status, data = workspace_request(user_id, action, **values)
+    messages = []
+    for message in data.get("messages", [])[:5]:
+        if message.get("type") == "text":
+            messages.append(TextSendMessage(text=message["text"][:4800]))
+        elif message.get("type") == "flex":
+            messages.append(FlexSendMessage(alt_text=message["altText"], contents=message["contents"]))
+    if not messages:
+        messages = [TextSendMessage(text="工作台暫時無法連線，請稍後再試。")]
+    line_bot.reply_message(event.reply_token, messages)
+
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text    = event.message.text.strip()
-    user_id = event.source.user_id
+    user_id = private_user_id(event)
+    if not user_id:
+        _reply_text(event, "請在與 Bot 的一對一聊天室綁定及查詢，避免個人資料出現在群組。")
+        return
 
     binding_code = _extract_binding_code(text)
     if binding_code:
@@ -362,13 +395,11 @@ def handle_message(event):
         line_bot.reply_message(event.reply_token, TextSendMessage(text=message))
         return
 
-    # The existing Google Sheet and 42004 file are single-owner data sources.
-    # Other users may bind and receive their own site notifications, but cannot query them.
     if not _legacy_data_authorized(user_id):
-        line_bot.reply_message(
-            event.reply_token,
-            TextSendMessage(text="此 LINE Bot 的既有保單資料尚未為你的帳號開通。你仍可使用「綁定 123456」連結網站。"),
-        )
+        _workspace_reply(event, "message")
+        return
+    if not has_workspace(user_id):
+        _reply_text(event, "請先登入工作台並連結自己的 LINE 帳號；目前無法確認有效綁定。")
         return
 
     if text == "同步續保":
@@ -538,6 +569,16 @@ def handle_message(event):
 # ── Postback 處理 ─────────────────────────────────────────
 @handler.add(PostbackEvent)
 def handle_postback(event):
+    user_id = private_user_id(event)
+    if not user_id:
+        _reply_text(event, "請在與 Bot 的一對一聊天室操作。")
+        return
+    if not _legacy_data_authorized(user_id) or event.postback.data.startswith("relay:"):
+        _workspace_reply(event, "postback")
+        return
+    if not has_workspace(user_id):
+        _reply_text(event, "綁定已失效，請回工作台重新連結。")
+        return
     data   = event.postback.data
     params = dict(p.split("=", 1) for p in data.split("&") if "=" in p)
     action = params.get("action", "")
@@ -1151,6 +1192,15 @@ def verify_key():
         import traceback
         traceback.print_exc()
         return jsonify({"valid": False, "message": f"驗證錯誤：{e}"}), 500
+
+
+@app.route("/api/bot-info", methods=["GET"])
+def public_bot_info():
+    try:
+        info = line_bot.get_bot_info()
+        return jsonify({"basicId": info.basic_id, "displayName": info.display_name})
+    except Exception:
+        return jsonify({"error": "BOT_INFO_UNAVAILABLE"}), 503
 
 
 # ── 健康檢查 ──────────────────────────────────────────────
