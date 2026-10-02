@@ -8,7 +8,7 @@
   sheets.py       ── Google Sheets 存取層（保服/業務/增員）
   excel_reader.py ── Google Drive Excel 讀取（42003/42004）
   flex_message.py ── 所有 Flex Message 組裝
-  scheduler.py    ── APScheduler 每日早報 + 產險推播
+  scheduler.py    ── APScheduler 產險續保 + 判決資料同步
   requirements.txt
   Procfile
   Dockerfile
@@ -52,7 +52,7 @@
 必填：
   LINE_CHANNEL_ACCESS_TOKEN   LINE Bot Channel Access Token
   LINE_CHANNEL_SECRET         LINE Bot Channel Secret
-  LINE_USER_ID                你自己的 LINE User ID（接收每日早報）
+  LINE_USER_ID                你自己的 LINE User ID（既有資料授權與網站同步）
   GOOGLE_SHEET_ID             Google Sheets 試算表 ID
   LICENSE_KEY                 授權金鑰
   GOOGLE_CREDENTIALS_B64      Google 服務帳號 JSON 的 base64 字串
@@ -86,7 +86,7 @@ LINE Developers Console → Messaging API → Webhook URL：
 待辦                   顯示所有待處理保服案件
 說明                   顯示指令說明
 
-產險                   產險說明（每日早報自動推播）
+產險                   產險查詢說明
 壽險                   今日壽星/保單周年統計
 
 業務                   業務追蹤列表
@@ -105,7 +105,7 @@ LINE Developers Console → Messaging API → Webhook URL：
                         刪除信用卡
 
 ================================================================
-【每日早報格式】（每日 08:00 台灣時間自動推播）
+【每日早報格式】（輸入「早報」手動查詢，自動推播已停用）
 ================================================================
 
 主人早安！MM/DD 今日待辦如下：
@@ -136,7 +136,7 @@ LINE Developers Console → Messaging API → Webhook URL：
 ▪️ 約聊聊：_ 組
 ▪️ 約簽約：_ 組
 
-早報之後，系統會繼續推播產險到期 Flex 卡片（60天內未完成件）。
+早報與晚報自動推播已停用。產險續保仍於每日 08:00 同步至網站；判決同步排程保留。
 
 ================================================================
 【部署步驟】
@@ -152,7 +152,7 @@ LINE Developers Console → Messaging API → Webhook URL：
 
 5. 發送「說明」測試，確認 Bot 正常回應
 
-6. 觀察 Railway logs 確認每日 UTC 00:00 早報正常執行後，
+6. 觀察 Railway logs 確認早晚報推播已停用、資料同步排程正常啟動後，
    再停止 insurance-bot 舊專案的 Railway 服務
 
 ================================================================

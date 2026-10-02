@@ -1,12 +1,9 @@
 """
 scheduler.py ── APScheduler 排程
-  每日 08:00（台灣時間，UTC+8 = UTC 00:00）
-  推送每日早報（文字訊息 1 則）
+  每日 08:00（台灣時間）同步產險續保，凌晨同步判決。
+  早報、晚報自動推播已停用；保留手動查詢早報。
 """
-import json
-import urllib.request
 import os
-import time
 from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -107,126 +104,6 @@ def _build_morning_report(db) -> str:
     return "\n".join(lines)
 
 
-# ── LINE Push 工具 ────────────────────────────────────────
-
-def _push_text(token: str, user_id: str, text: str):
-    url     = "https://api.line.me/v2/bot/message/push"
-    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token}
-    body    = json.dumps({"to": user_id, "messages": [{"type": "text", "text": text}]}).encode("utf-8")
-    req     = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    urllib.request.urlopen(req)
-
-
-# ── 晚間待辦任務 ──────────────────────────────────────────
-def run_evening(db):
-    """每日 20:00 台灣時間執行：推送晚間待辦"""
-    print(f"[排程] 開始晚間待辦 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-    user_id = os.environ.get("LINE_USER_ID", "")
-    if not token or not user_id:
-        print("[排程] 缺少 LINE 設定，跳過")
-        return
-
-    try:
-        today = datetime.now().strftime("%m/%d")
-        lines = [f"🌙 {today} 晚間待辦提醒", ""]
-
-        # 產險急件
-        try:
-            from excel_reader import get_property_daily_stats
-            import pandas as pd
-            from excel_reader import download_excel
-            from datetime import datetime as _dt
-            buf = download_excel("42004.xlsx")
-            df = pd.read_excel(buf, header=3)
-            df.columns = df.columns.str.strip()
-            def _roc(v):
-                try:
-                    s = str(v).strip()
-                    if len(s) == 7:
-                        y, rest = int(s[:3]) + 1911, s[3:]
-                        return pd.Timestamp(f"{y}-{rest[:2]}-{rest[4:]}")
-                except Exception:
-                    pass
-                return pd.NaT
-            df["到期日"] = df["保險迄日"].apply(_roc)
-            today_ts = pd.Timestamp(_dt.today().date())
-            df["剩餘天數"] = (df["到期日"] - today_ts).dt.days
-            prop_statuses = db.get_property_status()
-            skip = {"續保完成", "不續保"}
-            urgent_rows = df[
-                df["剩餘天數"].notna() &
-                df["剩餘天數"].between(0, 10) &
-                df["狀態"].astype(str).str.contains("正常")
-            ]
-            urgent_list = []
-            for _, row in urgent_rows.iterrows():
-                pid = str(row["保單號碼"]).strip()
-                cur = prop_statuses.get(pid, {}).get("status", "")
-                if cur not in skip:
-                    name = str(row["被保姓名"]).strip().replace("\n", "")
-                    urgent_list.append(f"  ■ {name} 倒數{int(row['剩餘天數'])}天")
-            if urgent_list:
-                lines.append(f"🚨 產險急件（{len(urgent_list)} 組）")
-                for u in urgent_list[:5]:
-                    lines.append(u)
-                lines.append("")
-        except Exception as e:
-            import traceback
-            print(f"[排程] 產險急件讀取失敗：{e}", flush=True)
-            traceback.print_exc()
-
-        # 新件追蹤
-        newcase_list = [r for r in db.get_newcase_list() if r.get("階段") != "已完成"]
-        if newcase_list:
-            lines.append(f"📋 新件追蹤（{len(newcase_list)} 件）")
-            for r in newcase_list:
-                lines.append(f"  ■ {r.get('姓名','')} {r.get('保險公司','')} [{r.get('階段','')}]")
-            lines.append("")
-
-        # 保服未完成
-        case_list = db.get_all_pending_cases()
-        if case_list:
-            lines.append(f"📄 保服未完成（{len(case_list)} 件）")
-            for r in case_list:
-                lines.append(f"  ■ {r.get('客戶姓名','')} {r.get('服務項目','')} [{r.get('狀態','')}]")
-            lines.append("")
-
-        # 扣款失敗
-        payment_list = [r for r in db.get_payment_failures() if r.get("狀態") != "已完成"]
-        if payment_list:
-            lines.append(f"💳 扣款失敗（{len(payment_list)} 件）")
-            for r in payment_list:
-                lines.append(f"  ■ {r.get('要保人','')} {r.get('公司','')} [{r.get('類別','')}]")
-            lines.append("")
-
-        # 銷售待跟進
-        biz_list = [r for r in db.get_biz_list() if r.get("階段") not in ["送保單", "已完成", "已結案"]]
-        if biz_list:
-            lines.append(f"💼 銷售待跟進（{len(biz_list)} 組）")
-            for r in biz_list[:3]:
-                lines.append(f"  ■ {r.get('姓名','')} [{r.get('階段','')}]")
-            lines.append("")
-
-        # 增員待跟進
-        recruit_list = [r for r in db.get_recruit_list() if r.get("階段") not in ["約報聘", "已完成", "已結案"]]
-        if recruit_list:
-            lines.append(f"👥 準增待跟進（{len(recruit_list)} 組）")
-            for r in recruit_list[:3]:
-                lines.append(f"  ■ {r.get('姓名','')} [{r.get('階段','')}]")
-        else:
-            lines.append("👥 準增待跟進（0 組）")
-            lines.append("  ■ 無待跟進")
-
-        msg = "\n".join(lines)
-        _push_text(token, user_id, msg)
-        print("[排程] 晚間待辦發送成功")
-
-    except Exception as e:
-        import traceback
-        print(f"[排程] 晚間待辦失敗：{e}")
-        traceback.print_exc()
-      
 def _sync_property_renewals(db, line_user_id: str):
     secret = os.environ.get("LINE_BRIDGE_SECRET", "")
     site_base = os.environ.get(
@@ -281,43 +158,17 @@ def _sync_judgments():
 
 # ── 主排程任務 ────────────────────────────────────────────
 
-def run_daily(db):
-    """每日 08:00 台灣時間執行：只推每日早報"""
-    print(f"[排程] 開始每日任務 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    token   = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-    user_id = os.environ.get("LINE_USER_ID", "")
-
-    if not token or not user_id:
-        print("[排程] 缺少 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_USER_ID，跳過")
+def run_daily_sync(db):
+    """每日 08:00 台灣時間同步產險續保，不發送 LINE 訊息。"""
+    print(f"[排程] 開始每日資料同步 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+    user_id = os.environ.get("LINE_USER_ID", "").strip()
+    if not user_id:
+        print("[排程] 缺少 LINE_USER_ID，跳過產險續保同步", flush=True)
         return
-
-    report = None
-    for attempt in range(1, 4):
-        try:
-            report = _build_morning_report(db)
-            break
-        except Exception as e:
-            import traceback
-            print(f"[排程] 早報建立失敗（第 {attempt} 次）：{e}")
-            traceback.print_exc()
-            if attempt < 3:
-                time.sleep(30)
-            else:
-                print("[排程] 早報建立連續失敗 3 次，放棄發送")
-                return
-
-    try:
-        _push_text(token, user_id, report)
-        print("[排程] 每日早報發送成功")
-    except Exception as e:
-        import traceback
-        print(f"[排程] 早報發送失敗：{e}")
-        traceback.print_exc()
-
     try:
         _sync_property_renewals(db, user_id)
     except Exception as e:
-        print(f"[排程] 產險續保同步失敗：{type(e).__name__}")
+        print(f"[排程] 產險續保同步失敗：{type(e).__name__}", flush=True)
 
 
 # ── 啟動排程 ──────────────────────────────────────────────
@@ -326,8 +177,18 @@ def start_scheduler(db):
     """在 app 啟動時呼叫，傳入 SheetsDB 實例"""
     scheduler = BackgroundScheduler(timezone="UTC")
     # UTC 00:00 = 台灣時間 08:00
-    scheduler.add_job(run_daily, "cron", hour=0, minute=0, args=[db])
-    scheduler.add_job(run_evening, "cron", hour=12, minute=0, args=[db])
+    scheduler.add_job(
+        run_daily_sync,
+        "cron",
+        hour=0,
+        minute=0,
+        args=[db],
+        id="property_renewal_sync",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=1800,
+    )
     # 司法院 API 僅於台灣時間 00:00–06:00 開放。安排三次補跑，避免單一時間點漏執行。
     # UTC 16:10 / 18:10 / 20:10 = 台灣時間 00:10 / 02:10 / 04:10。
     scheduler.add_job(
@@ -342,5 +203,5 @@ def start_scheduler(db):
         misfire_grace_time=1800,
     )
     scheduler.start()
-    print("[排程] APScheduler 已啟動；判決同步每日台灣時間 00:10、02:10、04:10 補跑", flush=True)
+    print("[排程] APScheduler 已啟動；早報與晚報自動推播已停用；產險續保每日台灣時間 08:00 同步；判決同步每日台灣時間 00:10、02:10、04:10 補跑", flush=True)
     return scheduler
