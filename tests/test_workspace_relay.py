@@ -51,6 +51,29 @@ class WorkspaceRelayTests(unittest.TestCase):
         db.assert_not_called()
         line.push_message.assert_not_called()
 
+    def test_records_export_checks_owner_and_binding_without_sending_line_messages(self):
+        client = self.app.app.test_client()
+        with patch.dict(os.environ, {"LINE_BRIDGE_SECRET": "test"}), patch.object(self.app, "get_db") as db, patch.object(self.app, "_legacy_data_authorized", return_value=False):
+            self.assertEqual(client.post('/api/site-sync/records', json={"lineUserId": "stranger"}, headers={"Authorization": "Bearer test"}).status_code, 403)
+            db.assert_not_called()
+        with patch.dict(os.environ, {"LINE_BRIDGE_SECRET": "test"}), patch.object(self.app, "_legacy_data_authorized", return_value=True), patch.object(self.app, "has_workspace", return_value=True), patch.object(self.app, "get_db"), patch.object(self.app, "collect_application_rows", return_value=([{"sourceKey": str(i)} for i in range(103)], 2)), patch.object(self.app, "line_bot") as line:
+            response = client.post('/api/site-sync/records', json={"lineUserId": "owner", "offset": 100}, headers={"Authorization": "Bearer test"})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json["rows"]), 3)
+            self.assertIsNone(response.json["nextOffset"])
+            self.assertEqual(response.json["skipped"], 2)
+            line.push_message.assert_not_called()
+
+    def test_status_writeback_routes_to_correct_sheet(self):
+        client = self.app.app.test_client()
+        with patch.dict(os.environ, {"LINE_BRIDGE_SECRET": "test"}), patch.object(self.app, "_legacy_data_authorized", return_value=True), patch.object(self.app, "has_workspace", return_value=True), patch.object(self.app, "get_db") as db:
+            for key, state, method in [("line-newcase:N003", "發單中", "update_newcase_stage"), ("line-payment:P001", "已通知", "update_payment_status")]:
+                db.reset_mock()
+                response = client.post('/api/site-sync/legacy-case-status', json={"lineUserId": "U" + "a" * 32, "sourceKey": key, "status": state}, headers={"Authorization": "Bearer test"})
+                self.assertEqual(response.status_code, 200)
+                getattr(db.return_value, method).assert_called_once_with(key.split(":")[1], state)
+                db.return_value.update_case_status.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
