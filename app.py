@@ -49,7 +49,7 @@ from flex_message import (
     build_help_message
 )
 from scheduler import start_scheduler
-from site_bridge import bearer_authorized, build_case_import_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
+from site_bridge import bearer_authorized, collect_application_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
 from workspace_relay import private_user_id, workspace_request, has_workspace
 
 app      = Flask(__name__)
@@ -131,18 +131,17 @@ def _sync_cases_to_site(line_user_id: str) -> tuple[bool, str]:
     secret = os.environ.get("LINE_BRIDGE_SECRET", "")
     if not secret:
         return False, "系統尚未完成安全橋接設定"
-    rows = build_case_import_rows(get_db().get_all_cases())
-    status, data = post_json(
-        f"{SITE_BASE_URL}/api/cases/import",
-        secret,
-        {"lineUserId": line_user_id, "rows": rows},
-        timeout=30,
-    )
-    if 200 <= status < 300 and data.get("ok") is True:
-        return True, f"✅ 已同步 {int(data.get('count', len(rows)))} 筆既有申請紀錄到網站"
-    if status == 404:
-        return False, "❌ 此 LINE 尚未綁定網站，請先完成六位數綁定"
-    return False, "❌ 既有申請紀錄同步失敗，請稍後再試"
+    rows, skipped = collect_application_rows(get_db())
+    imported = 0
+    for offset in range(0, len(rows), 100):
+        chunk = rows[offset:offset + 100]
+        status, data = post_json(f"{SITE_BASE_URL}/api/cases/import", secret, {"lineUserId": line_user_id, "rows": chunk}, timeout=30)
+        if not (200 <= status < 300 and data.get("ok") is True):
+            return False, "❌ 申請紀錄同步未完成，請稍後再試"
+        imported += int(data.get("imported", len(chunk)))
+    notice = f"；{skipped} 筆格式不完整，請檢查原始資料" if skipped else ""
+    return True, f"✅ 已同步 {imported} 筆保服、新契約與保費紀錄到網站{notice}"
+
 
 
 def _sync_all_site_data(line_user_id: str) -> str:
@@ -242,6 +241,28 @@ def site_sync_case():
     })
 
 
+@app.route("/api/site-sync/records", methods=["POST"])
+def site_read_application_records():
+    """Read owner-scoped metadata on demand, with no LINE push or shared dashboard."""
+    if not _bridge_authorized():
+        return jsonify({"error": "FORBIDDEN"}), 403
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or set(body) - {"lineUserId", "offset"}:
+        return jsonify({"error": "INVALID_INPUT"}), 400
+    user_id = body.get("lineUserId", "")
+    offset = body.get("offset", 0)
+    if not isinstance(user_id, str) or not isinstance(offset, int) or isinstance(offset, bool) or offset < 0 or offset > 100000:
+        return jsonify({"error": "INVALID_INPUT"}), 400
+    if not _legacy_data_authorized(user_id) or not has_workspace(user_id):
+        return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
+    try:
+        rows, skipped = collect_application_rows(get_db())
+    except Exception:
+        return jsonify({"error": "SOURCE_UNAVAILABLE", "message": "無法讀取原始保服、新契約或保費資料，請稍後重試"}), 502
+    page = rows[offset:offset + 100]
+    return jsonify({"ok": True, "rows": page, "total": len(rows), "skipped": skipped, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None})
+
+
 @app.route("/api/site-sync/legacy-case-status", methods=["POST"])
 def site_sync_legacy_case_status():
     """Update one owner-only legacy case after it is edited on the bound site."""
@@ -254,7 +275,9 @@ def site_sync_legacy_case_status():
         return jsonify({"error": validation_error}), 400
     if not _legacy_data_authorized(payload["lineUserId"]) or not has_workspace(payload["lineUserId"]):
         return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
-    if not get_db().update_case_status(payload["caseId"], payload["status"]):
+    db = get_db()
+    update = {"line-newcase": db.update_newcase_stage, "line-payment": db.update_payment_status, "line-case": db.update_case_status}[payload["kind"]]
+    if not update(payload["caseId"], payload["status"]):
         return jsonify({"error": "CASE_NOT_FOUND"}), 404
     return jsonify({"ok": True, "sourceKey": payload["sourceKey"], "status": payload["status"]})
 

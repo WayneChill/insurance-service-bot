@@ -136,11 +136,13 @@ class SheetsDB:
             records = []
         return [r for r in records if r.get("客戶姓名") == name]
 
-    def get_all_cases(self) -> list:
+    def get_all_cases(self, strict: bool = False) -> list:
         """Return all legacy service cases for privacy-minimized site import."""
         try:
             return self._ws(WS_CASES).get_all_records()
         except Exception as e:
+            if strict:
+                raise
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             return []
 
@@ -365,11 +367,13 @@ class SheetsDB:
         ws.append_row([rid, name, company, stage, note, _now(), _now()])
         return rid
 
-    def get_newcase_list(self) -> list:
+    def get_newcase_list(self, strict: bool = False) -> list:
         ws = self._ws(WS_NEWCASE)
         try:
             records = ws.get_all_records()
         except Exception as e:
+            if strict:
+                raise
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             records = []
         return records
@@ -579,14 +583,16 @@ class SheetsDB:
                 return
 
     # ══ 扣款失敗追蹤 ══
-    def get_payment_failures(self) -> list:
+    def get_payment_failures(self, include_completed: bool = False, strict: bool = False) -> list:
         ws = self._ws(WS_PAYMENT)
         try:
             records = ws.get_all_records()
         except Exception as e:
+            if strict:
+                raise
             print(f"[WARN] 讀取工作表失敗，略過：{e}", flush=True)
             records = []
-        return [r for r in records if r.get("狀態", "") != "已完成"]
+        return records if include_completed else [r for r in records if r.get("狀態", "") != "已完成"]
 
     def update_payment_status(self, row_id: str, status: str) -> bool:
         ws = self._ws(WS_PAYMENT)
