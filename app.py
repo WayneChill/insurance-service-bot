@@ -276,8 +276,7 @@ def site_sync_legacy_case_status():
     if not _legacy_data_authorized(payload["lineUserId"]) or not has_workspace(payload["lineUserId"]):
         return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
     db = get_db()
-    update = {"line-newcase": db.update_newcase_stage, "line-payment": db.update_payment_status, "line-case": db.update_case_status}[payload["kind"]]
-    if not update(payload["caseId"], payload["status"]):
+    if not db.update_site_application_status(payload["sourceKey"], payload["status"]):
         return jsonify({"error": "CASE_NOT_FOUND"}), 404
     return jsonify({"ok": True, "sourceKey": payload["sourceKey"], "status": payload["status"]})
 

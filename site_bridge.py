@@ -77,7 +77,7 @@ def validate_legacy_case_status_payload(payload: Any) -> tuple[dict[str, str] | 
     status = str(payload.get("status", "")).strip()
     if not re.fullmatch(r"U[0-9A-Za-z]{20,64}", line_user_id):
         return None, "INVALID_LINE_USER_ID"
-    match = re.fullmatch(r"(line-case|line-newcase|line-payment):([\w-]{1,80})", source_key)
+    match = re.fullmatch(r"(line-case|line-newcase|line-payment):([\w-]{1,80})(?::[0-9a-f]{32})?", source_key)
     if not match or (match.group(1) == "line-case" and not re.fullmatch(r"C\d{3,}", match.group(2))) or (match.group(1) == "line-newcase" and not re.fullmatch(r"N\d{3,}", match.group(2))):
         return None, "INVALID_SOURCE_KEY"
     allowed = {"line-newcase": NEW_CONTRACT_STAGES, "line-payment": PAYMENT_STAGES, "line-case": LEGACY_CASE_STATUSES}[match.group(1)]
@@ -144,7 +144,7 @@ def build_case_import_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]
         insurers = [value.strip()[:80] for value in re.split(r"[、,，/]+", company) if value.strip()]
         document_type = "cardAuth" if "信用卡" in service_type else (service_type[:24] or "保服")
         rows.append({
-            "sourceKey": f"line-case:{case_id[:120]}",
+            "sourceKey": record.get("網站同步識別") or f"line-case:{case_id[:120]}",
             "documentType": document_type,
             "customerDisplayName": name,
             "insurers": insurers[:20],
@@ -179,15 +179,13 @@ def build_newcase_import_rows(records: list[dict[str, Any]]) -> list[dict[str, A
         if not re.fullmatch(r"N\d{3,}", rid) or not name or not created or not stage:
             continue
         companies = [v.strip()[:40] for v in re.split(r"[、,，/]+", str(record.get("保險公司", ""))) if v.strip()]
-        rows.append({"sourceKey": f"line-newcase:{rid}", "documentType": "newContract", "customerDisplayName": name, "insurers": companies[:20], "createdAt": created, "status": stage[:30]})
+        rows.append({"sourceKey": record.get("網站同步識別") or f"line-newcase:{rid}", "documentType": "newContract", "customerDisplayName": name, "insurers": companies[:20], "createdAt": created, "status": stage[:30]})
     return rows
 
 
 def collect_application_rows(db) -> tuple[list[dict[str, Any]], int]:
     # Strict reads: a failed Sheet request must not be reported as a successful empty sync.
-    cases = db.get_all_cases(strict=True)
-    newcases = db.get_newcase_list(strict=True)
-    payments = db.get_payment_failures(include_completed=True, strict=True)
+    cases, newcases, payments = db.get_application_sync_sources()
     rows = build_case_import_rows(cases) + build_newcase_import_rows(newcases) + build_payment_import_rows(payments)
     rows.sort(key=lambda r: (r["createdAt"], r["sourceKey"]), reverse=True)
     return rows, len(cases) + len(newcases) + len(payments) - len(rows)
@@ -203,5 +201,5 @@ def build_payment_import_rows(records: list[dict[str, Any]]) -> list[dict[str, A
         created = normalized_record_time(record.get("更新時間", "")) or normalized_record_time(record.get("轉帳日", ""))
         # An undated source stays explicitly undated in the UI, rather than looking newly created.
         details = {"premium": str(record.get("保費", "")).strip()[:80], "paymentDate": str(record.get("轉帳日", "")).strip()[:40], "paymentType": str(record.get("類別", "")).strip()[:40], "policyMasked": mask_policy_number(record.get("保單號碼", "")), "recordDateMissing": not bool(created)}
-        rows.append({"sourceKey": f"line-payment:{rid}", "documentType": "premium", "customerDisplayName": name, "insurers": [str(record.get("公司", "")).strip()[:40]] if record.get("公司") else [], "createdAt": created or "1970-01-01T00:00:00+08:00", "status": str(record.get("狀態", "")).strip()[:30] or "待處理", "details": details})
+        rows.append({"sourceKey": record.get("網站同步識別") or f"line-payment:{rid}", "documentType": "premium", "customerDisplayName": name, "insurers": [str(record.get("公司", "")).strip()[:40]] if record.get("公司") else [], "createdAt": created or "1970-01-01T00:00:00+08:00", "status": str(record.get("狀態", "")).strip()[:30] or "待處理", "details": details})
     return rows

@@ -126,14 +126,14 @@ class SiteBridgeTests(unittest.TestCase):
     def test_collection_includes_completed_payments_to_reconcile_and_never_truncates_first_thousand(self):
         from unittest.mock import Mock
         db = Mock()
-        db.get_all_cases.return_value = []
-        db.get_newcase_list.return_value = [{"ID": f"N{i:03d}", "姓名": "Test", "階段": "核保中", "建立時間": "2026/10/03 10:00"} for i in range(1005)]
-        db.get_payment_failures.return_value = [{"ID": "P001", "要保人": "Test", "狀態": "已完成"}]
+        newcases = [{"ID": f"N{i:03d}", "姓名": "Test", "階段": "核保中", "建立時間": "2026/10/03 10:00"} for i in range(1005)]
+        payments = [{"ID": "P001", "要保人": "Test", "狀態": "已完成"}]
+        db.get_application_sync_sources.return_value = ([], newcases, payments)
         rows, skipped = collect_application_rows(db)
         self.assertEqual(len(rows), 1006)
         self.assertEqual(skipped, 0)
-        db.get_payment_failures.assert_called_once_with(include_completed=True, strict=True)
-        db.get_newcase_list.side_effect = RuntimeError("upstream failure")
+        db.get_application_sync_sources.assert_called_once_with()
+        db.get_application_sync_sources.side_effect = RuntimeError("upstream failure")
         with self.assertRaises(RuntimeError):
             collect_application_rows(db)
 
@@ -153,6 +153,47 @@ class SiteBridgeTests(unittest.TestCase):
         ws.get_all_values.return_value = [header + ['保費'], row + ['bad']]
         with self.assertRaises(ValueError): read_payment_records(ws)
 
+
+    def test_duplicate_ids_get_persistent_keys_and_update_exact_row_after_sort(self):
+        from unittest.mock import Mock
+        from sheets import ensure_site_sync_keys, SITE_SYNC_FIELD, SheetsDB
+        ws = Mock(); ws.col_count = 26; ws.row_values.return_value = ['案件ID', '客戶姓名']
+        records = [{'案件ID': 'C001', '客戶姓名': 'Test'}, {}, {'案件ID': 'C001', '客戶姓名': 'Test'}]
+        keyed = ensure_site_sync_keys(ws, records, 'line-case', '案件ID')
+        first, second = keyed[0][SITE_SYNC_FIELD], keyed[2][SITE_SYNC_FIELD]
+        self.assertEqual(first, 'line-case:C001')
+        self.assertNotEqual(first, second)
+        self.assertEqual(ws.batch_update.call_args.args[0][2]['range'], 'C4')
+        self.assertIsNone(validate_legacy_case_status_payload({'lineUserId': VALID['lineUserId'], 'sourceKey': second, 'status': '已完成'})[1])
+        ws.reset_mock()
+        reordered = [keyed[2], {}, keyed[0]]
+        ensure_site_sync_keys(ws, reordered, 'line-case', '案件ID')
+        ws.batch_update.assert_not_called()
+        self.assertEqual(reordered[0][SITE_SYNC_FIELD], second)
+        ws.get_all_records.return_value = reordered
+        db = SheetsDB.__new__(SheetsDB); db._ws = Mock(return_value=ws)
+        self.assertTrue(db.update_site_application_status(second, '已完成'))
+        self.assertEqual(ws.batch_update.call_args.args[0][0], {'range': 'E2', 'values': [['已完成']]})
+        ws.reset_mock()
+        self.assertFalse(db.update_site_application_status('line-case:C999', '已完成'))
+        ws.batch_update.assert_not_called()
+        copied = [dict(keyed[0]), dict(keyed[0])]
+        ensure_site_sync_keys(ws, copied, 'line-case', '案件ID')
+        self.assertNotEqual(copied[0][SITE_SYNC_FIELD], copied[1][SITE_SYNC_FIELD])
+
+    def test_payment_key_preserves_distinct_identical_source_rows(self):
+        from unittest.mock import Mock
+        from sheets import ensure_site_sync_keys, SITE_SYNC_FIELD, SheetsDB
+        ws = Mock(); ws.col_count = 26; ws.row_values.return_value = ['ID', '要保人']
+        records = [{'ID': '0001', '要保人': 'Test', '轉帳日': '1151002', '狀態': '已通知'} for _ in range(5)]
+        ensure_site_sync_keys(ws, records, 'line-payment', 'ID')
+        rows = build_payment_import_rows(records)
+        self.assertEqual(len({r['sourceKey'] for r in rows}), 5)
+        header = ['ID','公司','要保人','保單號碼','類別','轉帳日','保費','狀態','備註','更新時間',SITE_SYNC_FIELD]
+        ws.get_all_values.return_value = [header] + [[r.get(k,'') for k in header] for r in reversed(records)]
+        db = SheetsDB.__new__(SheetsDB); db._ws = Mock(return_value=ws)
+        self.assertTrue(db.update_site_application_status(rows[1]['sourceKey'], '已完成'))
+        self.assertEqual(ws.batch_update.call_args.args[0][0]['range'], 'H5')
 
 if __name__ == "__main__":
     unittest.main()
