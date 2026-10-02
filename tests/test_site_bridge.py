@@ -137,6 +137,22 @@ class SiteBridgeTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             collect_application_rows(db)
 
+    def test_payment_blank_header_columns_do_not_break_read_or_shift_writeback(self):
+        from unittest.mock import Mock
+        from sheets import read_payment_records, SheetsDB
+        header = ['ID','公司','要保人','保單號碼','類別','轉帳日','保費','狀態','備註','更新時間','','']
+        row = ['0001','測試公司','測試','AB123456789','年繳','1151002','12,000','已通知','','2026/10/02 09:00','format','']
+        ws = Mock(); ws.get_all_values.return_value = [header, [], row]
+        records = read_payment_records(ws)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[1]['ID'], '0001')
+        self.assertNotIn('', records[1])
+        db = SheetsDB.__new__(SheetsDB); db._ws = Mock(return_value=ws)
+        self.assertTrue(db.update_payment_status('0001','已完成'))
+        self.assertEqual(ws.update_cell.call_args_list[0].args,(3,8,'已完成'))
+        ws.get_all_values.return_value = [header + ['保費'], row + ['bad']]
+        with self.assertRaises(ValueError): read_payment_records(ws)
+
 
 if __name__ == "__main__":
     unittest.main()
