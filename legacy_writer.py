@@ -91,8 +91,12 @@ def revision(client):
 
 def _request_json(url, token, payload=None):
     data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    # Sites reserves Authorization for its edge login flow. Carry only the
+    # watcher's broker OIDC token separately; GitHub token retrieval and the
+    # Bot bridge continue to use the standard Authorization header.
+    authorization_header = "X-Legacy-Writer-Authorization" if isinstance(payload, dict) and payload.get("client") == "watcher" else "Authorization"
     req = Request(url, data=data, method="GET" if payload is None else "POST", headers={
-        "Authorization": "Bearer " + token, "Accept": "application/json",
+        authorization_header: "Bearer " + token, "Accept": "application/json",
         "Content-Type": "application/json", "Cache-Control": "no-store",
     })
     try:
