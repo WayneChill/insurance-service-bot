@@ -12,9 +12,11 @@ import base64
 import re
 import threading
 import uuid
+from contextlib import nullcontext
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+from legacy_writer import LegacyWriterError, guard_gspread_client, legacy_operation, operation, sheet_operation
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -34,6 +36,7 @@ SITE_SYNC_FIELD = "網站同步識別"
 SITE_SYNC_LOCK = threading.RLock()
 
 
+@legacy_operation("bot")
 def ensure_site_sync_keys(ws, records: list, kind: str, id_field: str) -> list:
     """Persist a separate row identity without changing existing IDs or customer fields."""
     pattern = re.compile(rf"{re.escape(kind)}:[\w-]{{1,80}}(?::[0-9a-f]{{32}})?")
@@ -98,7 +101,8 @@ def read_payment_records(ws) -> list:
 class SheetsDB:
     """單例式 Google Sheets 連線（app 啟動時初始化一次）"""
 
-    def __init__(self):
+    def __init__(self, readonly=False):
+        self.readonly = readonly
         print("[DB] 開始連線 Google Sheets...", flush=True)
         creds = _get_creds()
         print("[DB] 憑證取得成功", flush=True)
@@ -115,11 +119,14 @@ class SheetsDB:
             path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
             gc = gspread.service_account(filename=path)
         print(f"[DB] 嘗試開啟 GOOGLE_SHEET_ID: {os.environ.get('GOOGLE_SHEET_ID','未設定')}", flush=True)
+        guard_gspread_client(gc, "bot", readonly=readonly)
         self.spreadsheet = gc.open_by_key(os.environ["GOOGLE_SHEET_ID"])
         print("[DB] Sheets 連線成功", flush=True)
-        self._ensure_sheets()
+        if not readonly:
+            self._ensure_sheets()
         print("[DB] 工作表初始化完成", flush=True)
 
+    @sheet_operation
     def _ensure_sheets(self):
         existing = [ws.title for ws in self.spreadsheet.worksheets()]
         if WS_CASES not in existing:
@@ -162,6 +169,7 @@ class SheetsDB:
         return self.spreadsheet.worksheet(name)
 
     # ══ 保服案件 ══
+    @sheet_operation
     def add_case(self, name: str, service_type: str, policy: str = "", company: str = "", note: str = "") -> str:
         ws = self._ws(WS_CASES)
         try:
@@ -202,6 +210,7 @@ class SheetsDB:
             records = []
         return [r for r in records if r.get("狀態", "") in pending_statuses]
 
+    @sheet_operation
     def update_case_status(self, case_id: str, status: str) -> bool:
         ws = self._ws(WS_CASES)
         try:
@@ -216,6 +225,7 @@ class SheetsDB:
                 return True
         return False
 
+    @sheet_operation
     def update_case_note(self, case_id: str, note: str) -> str:
         ws = self._ws(WS_CASES)
         try:
@@ -246,6 +256,7 @@ class SheetsDB:
         return counts
 
     # ══ 信用卡 ══
+    @sheet_operation
     def add_card(self, name: str, bank: str, card_num: str, expiry: str, policy_note: str = ""):
         self._ws(WS_CARDS).append_row([name, bank, card_num, expiry, policy_note])
 
@@ -258,6 +269,7 @@ class SheetsDB:
             records = []
         return [r for r in records if r.get("姓名") == name]
 
+    @sheet_operation
     def delete_card(self, name: str, bank: str, card_num: str) -> bool:
         ws = self._ws(WS_CARDS)
         try:
@@ -274,6 +286,7 @@ class SheetsDB:
         return False
 
     # ══ 業務追蹤 ══
+    @sheet_operation
     def add_biz(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_BIZ)
         try:
@@ -294,6 +307,7 @@ class SheetsDB:
             records = []
         return records
 
+    @sheet_operation
     def update_biz_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_BIZ)
         try:
@@ -308,6 +322,7 @@ class SheetsDB:
                 return True
         return False
 
+    @sheet_operation
     def update_biz_note(self, rid: str, note: str) -> str:
         """更新業務備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_BIZ)
@@ -338,6 +353,7 @@ class SheetsDB:
         return counts
 
     # ══ 增員追蹤 ══
+    @sheet_operation
     def add_recruit(self, name: str, phone: str = "", stage: str = "已聯繫", note: str = "") -> str:
         ws = self._ws(WS_RECRUIT)
         try:
@@ -358,6 +374,7 @@ class SheetsDB:
             records = []
         return records
 
+    @sheet_operation
     def update_recruit_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_RECRUIT)
         try:
@@ -372,6 +389,7 @@ class SheetsDB:
                 return True
         return False
 
+    @sheet_operation
     def update_recruit_note(self, rid: str, note: str) -> str:
         """更新增員備註，回傳姓名（找不到回傳空字串）"""
         ws = self._ws(WS_RECRUIT)
@@ -402,6 +420,7 @@ class SheetsDB:
         return counts
 
     # ══ 新契約追蹤 ══
+    @sheet_operation
     def add_newcase(self, name: str, company: str, stage: str = "核保中", note: str = "") -> str:
         ws = self._ws(WS_NEWCASE)
         try:
@@ -424,6 +443,7 @@ class SheetsDB:
             records = []
         return records
 
+    @sheet_operation
     def update_newcase_stage(self, rid: str, stage: str) -> bool:
         ws = self._ws(WS_NEWCASE)
         try:
@@ -438,6 +458,7 @@ class SheetsDB:
                 return True
         return False
 
+    @sheet_operation
     def update_newcase_note(self, rid: str, note: str) -> str:
         ws = self._ws(WS_NEWCASE)
         try:
@@ -467,6 +488,7 @@ class SheetsDB:
         return counts
 
     # ══ 行程 ══
+    @sheet_operation
     def add_schedule(self, date: str, time: str, stype: str, title: str, note: str = "") -> str:
         ws = self._ws(WS_SCHEDULE)
         try:
@@ -478,6 +500,7 @@ class SheetsDB:
         ws.append_row([sid, date, time, stype, title, note, _now()])
         return sid
 
+    @sheet_operation
     def delete_schedule(self, sid: str) -> bool:
         ws = self._ws(WS_SCHEDULE)
         try:
@@ -536,6 +559,7 @@ class SheetsDB:
         return self.get_schedule_by_range(start, end)
 
     # ══ 網站案件同步（只保存必要中繼資料） ══
+    @sheet_operation
     def upsert_site_case(self, payload: dict) -> tuple[bool, bool]:
         """Return (created, already_notified), keyed by LINE user + idempotency key."""
         ws = self._ws(WS_SITE_CASES)
@@ -553,6 +577,7 @@ class SheetsDB:
         ])
         return True, False
 
+    @sheet_operation
     def mark_site_case_notified(self, line_user_id: str, idempotency_key: str) -> bool:
         ws = self._ws(WS_SITE_CASES)
         records = ws.get_all_records()
@@ -592,13 +617,17 @@ class SheetsDB:
                 try:
                     ts = datetime.strptime(r["timestamp"], "%Y/%m/%d %H:%M:%S")
                     if datetime.now() - ts > timedelta(minutes=10):
-                        ws.delete_rows(i)
+                        if not self.readonly:
+                            ws.delete_rows(i)
                         return None
+                except LegacyWriterError:
+                    raise
                 except Exception:
                     pass
                 return r.get("action") or None
         return None
 
+    @sheet_operation
     def set_pending(self, user_id: str, action: str):
         """設定 pending action（同一 user_id 直接覆蓋）"""
         from datetime import datetime
@@ -615,6 +644,7 @@ class SheetsDB:
                 return
         ws.append_row([user_id, action, ts])
 
+    @sheet_operation
     def del_pending(self, user_id: str):
         """清除 pending action"""
         ws = self._ws(WS_PENDING)
@@ -631,14 +661,15 @@ class SheetsDB:
     # ══ 扣款失敗追蹤 ══
     def get_application_sync_sources(self):
         # One worker, with a lock shared by request and background sync threads.
-        with SITE_SYNC_LOCK:
+        with SITE_SYNC_LOCK, (nullcontext() if self.readonly else operation("bot")):
             sources = []
             for sheet, kind, id_field in [(WS_CASES, "line-case", "案件ID"), (WS_NEWCASE, "line-newcase", "ID"), (WS_PAYMENT, "line-payment", "ID")]:
                 ws = self._ws(sheet)
                 records = read_payment_records(ws) if sheet == WS_PAYMENT else ws.get_all_records()
-                sources.append(ensure_site_sync_keys(ws, records, kind, id_field))
+                sources.append(records if self.readonly else ensure_site_sync_keys(ws, records, kind, id_field))
             return sources
 
+    @sheet_operation
     def update_site_application_status(self, source_key: str, status: str) -> bool:
         kind = source_key.split(":", 1)[0]
         config = {
@@ -674,6 +705,7 @@ class SheetsDB:
             records = []
         return records if include_completed else [r for r in records if r.get("狀態", "") != "已完成"]
 
+    @sheet_operation
     def update_payment_status(self, row_id: str, status: str) -> bool:
         ws = self._ws(WS_PAYMENT)
         try:
@@ -688,6 +720,7 @@ class SheetsDB:
                 return True
         return False
 
+    @sheet_operation
     def add_payment_note(self, row_id: str, note: str) -> str:
         ws = self._ws(WS_PAYMENT)
         try:
@@ -702,6 +735,7 @@ class SheetsDB:
                 return r.get("要保人", "")
         return ""
 
+    @sheet_operation
     def write_property_status(self, policy_id: str, name: str, label: str):
         ws = self.spreadsheet.sheet1
         cells = ws.findall(policy_id, in_column=1)

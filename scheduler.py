@@ -14,6 +14,7 @@ from excel_reader import (
     get_property_renewal_rows,
 )
 from site_bridge import post_json
+from legacy_writer import legacy_operation, mark_uncertain
 
 
 # ── 每日早報文字 ──────────────────────────────────────────
@@ -104,6 +105,7 @@ def _build_morning_report(db) -> str:
     return "\n".join(lines)
 
 
+@legacy_operation("bot")
 def _sync_property_renewals(db, line_user_id: str):
     secret = os.environ.get("LINE_BRIDGE_SECRET", "")
     site_base = os.environ.get(
@@ -118,6 +120,8 @@ def _sync_property_renewals(db, line_user_id: str):
         {"lineUserId": line_user_id, "rows": rows[:1000]},
         timeout=30,
     )
+    if not status or status >= 500:
+        mark_uncertain()
     if 200 <= status < 300 and data.get("ok") is True:
         print(f"[排程] 產險續保同步成功，共 {int(data.get('count', len(rows)))} 筆")
     else:

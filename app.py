@@ -9,6 +9,7 @@ import hmac
 import re
 import threading
 import unicodedata
+from functools import wraps
 from urllib.parse import unquote
 from datetime import datetime
 from flask import Flask, request, abort, jsonify, make_response
@@ -51,6 +52,10 @@ from flex_message import (
 from scheduler import start_scheduler
 from site_bridge import bearer_authorized, collect_application_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
 from workspace_relay import private_user_id, workspace_request, has_workspace
+from legacy_writer import (
+    LegacyFrozen, LegacyWriterError, broker_status, guard_gspread_client, legacy_operation,
+    mark_uncertain, migration_notice, operation, revision,
+)
 
 app      = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
@@ -60,26 +65,46 @@ handler  = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
 
 # ── DB（啟動時背景初始化，確保排程器能準時執行）─────────
 _db = None
+_readonly_db = None
 _scheduler = None
+_db_lock = threading.RLock()
 
 def get_db():
-    global _db, _scheduler
-    if _db is None:
-        print("[DB] 初始化 SheetsDB...", flush=True)
-        _db = SheetsDB()
-        print("[DB] 完成，啟動排程", flush=True)
-        # 保留常駐參照，避免背景排程器在長時間無請求時被回收。
-        _scheduler = start_scheduler(_db)
-    return _db
+    global _db
+    with _db_lock:
+        if _db is None:
+            try:
+                _db = SheetsDB()
+            except LegacyWriterError:
+                # Closing admission must not prevent reads or stop court sync.
+                return get_readonly_db()
+        return _db
+
+
+def get_readonly_db():
+    global _readonly_db
+    with _db_lock:
+        if _readonly_db is None:
+            _readonly_db = SheetsDB(readonly=True)
+        return _readonly_db
+
+
+class _SchedulerDB:
+    def __getattr__(self, name):
+        return getattr(get_db(), name)
 
 def _startup_init():
+    global _scheduler
+    # Court jobs are independent of Sheets and start even if Sheets is frozen/down.
+    if _scheduler is None:
+        _scheduler = start_scheduler(_SchedulerDB())
     import threading
     def _init():
         try:
             get_db()
             print("[DB] 啟動時初始化完成，排程器已啟動", flush=True)
         except Exception as e:
-            print(f"[DB] 啟動時初始化失敗，將於收到訊息時重試: {e}", flush=True)
+            print(f"[DB] 啟動時初始化失敗，將於收到訊息時重試: {type(e).__name__}", flush=True)
     threading.Thread(target=_init, daemon=True).start()
 
 _startup_init()
@@ -108,6 +133,49 @@ def _legacy_data_authorized(line_user_id: str) -> bool:
     return bool(owner) and hmac.compare_digest(line_user_id, owner)
 
 
+@app.errorhandler(LegacyWriterError)
+def _legacy_writer_error(error):
+    frozen = isinstance(error, LegacyFrozen)
+    return jsonify({"error": "LEGACY_FROZEN" if frozen else "LEGACY_WRITER_UNAVAILABLE",
+                    "message": migration_notice()}), 409 if frozen else 503
+
+
+def _legacy_api_operation(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        if request.path.startswith("/api/dashboard"):
+            admitted = (request.method in ("PATCH", "DELETE") and
+                        os.environ.get("ENABLE_LEGACY_DASHBOARD", "").lower() == "true" and
+                        _dashboard_authorized())
+        else:
+            body = request.get_json(silent=True)
+            admitted = (_bridge_authorized() and isinstance(body, dict) and
+                        isinstance(body.get("lineUserId"), str) and
+                        _legacy_data_authorized(body["lineUserId"]))
+        if admitted:
+            with operation("bot"):
+                return fn(*args, **kwargs)
+        return fn(*args, **kwargs)
+    return wrapped
+
+
+def _legacy_event_operation(fn):
+    @wraps(fn)
+    def wrapped(event):
+        user_id = private_user_id(event)
+        binding = hasattr(event, "message") and _extract_binding_code(event.message.text)
+        relay = hasattr(event, "postback") and event.postback.data.startswith("relay:")
+        if not user_id or not _legacy_data_authorized(user_id) or binding or relay:
+            return fn(event)
+        try:
+            with operation("bot"):
+                return fn(event)
+        except LegacyWriterError:
+            return _reply_text(event, migration_notice())
+    return wrapped
+
+
+@legacy_operation("bot")
 def _sync_renewals_to_site(line_user_id: str) -> tuple[bool, str]:
     secret = os.environ.get("LINE_BRIDGE_SECRET", "")
     if not secret:
@@ -120,6 +188,8 @@ def _sync_renewals_to_site(line_user_id: str) -> tuple[bool, str]:
         {"lineUserId": line_user_id, "rows": rows[:1000]},
         timeout=30,
     )
+    if not status or status >= 500:
+        mark_uncertain()
     if 200 <= status < 300 and data.get("ok") is True:
         return True, f"✅ 已同步 {int(data.get('count', len(rows)))} 筆產險續保資料到網站"
     if status == 404:
@@ -127,6 +197,7 @@ def _sync_renewals_to_site(line_user_id: str) -> tuple[bool, str]:
     return False, "❌ 產險續保同步失敗，請稍後再試"
 
 
+@legacy_operation("bot")
 def _sync_cases_to_site(line_user_id: str) -> tuple[bool, str]:
     secret = os.environ.get("LINE_BRIDGE_SECRET", "")
     if not secret:
@@ -136,6 +207,8 @@ def _sync_cases_to_site(line_user_id: str) -> tuple[bool, str]:
     for offset in range(0, len(rows), 100):
         chunk = rows[offset:offset + 100]
         status, data = post_json(f"{SITE_BASE_URL}/api/cases/import", secret, {"lineUserId": line_user_id, "rows": chunk}, timeout=30)
+        if not status or status >= 500:
+            mark_uncertain()
         if not (200 <= status < 300 and data.get("ok") is True):
             return False, "❌ 申請紀錄同步未完成，請稍後再試"
         imported += int(data.get("imported", len(chunk)))
@@ -144,11 +217,14 @@ def _sync_cases_to_site(line_user_id: str) -> tuple[bool, str]:
 
 
 
+@legacy_operation("bot")
 def _sync_all_site_data(line_user_id: str) -> str:
     messages = []
     for sync in (_sync_renewals_to_site, _sync_cases_to_site):
         try:
             _, message = sync(line_user_id)
+        except LegacyWriterError:
+            message = migration_notice()
         except Exception:
             message = "❌ 同步發生錯誤，請稍後再輸入「同步網站」"
         messages.append(message)
@@ -158,7 +234,10 @@ def _sync_all_site_data(line_user_id: str) -> str:
 def _start_site_sync(line_user_id: str) -> None:
     """Run Drive/Sheets imports after the webhook reply so LINE does not time out."""
     def worker():
-        result = _sync_all_site_data(line_user_id)
+        try:
+            result = _sync_all_site_data(line_user_id)
+        except LegacyWriterError:
+            result = migration_notice()
         try:
             line_bot.push_message(line_user_id, TextSendMessage(text=result))
         except Exception:
@@ -199,6 +278,7 @@ def _extract_binding_code(message: str) -> str | None:
 
 
 @app.route("/api/site-sync/cases", methods=["POST"])
+@_legacy_api_operation
 def site_sync_case():
     """Receive one metadata-only case from the site and notify its bound LINE user."""
     if not os.environ.get("LINE_BRIDGE_SECRET"):
@@ -257,11 +337,23 @@ def site_read_application_records():
         return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
     try:
         rows, skipped = collect_application_rows(get_db())
+    except LegacyWriterError as error:
+        return _legacy_writer_error(error)
     except Exception:
         return jsonify({"error": "SOURCE_UNAVAILABLE", "message": "無法讀取原始保服、新契約或保費資料，請稍後重試"}), 502
     page = rows[offset:offset + 100]
     return jsonify({"ok": True, "rows": page, "total": len(rows), "skipped": skipped, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None})
 
+
+
+@app.route("/api/site-sync/migration/protocol", methods=["GET"])
+def site_migration_protocol():
+    if not _bridge_authorized():
+        return jsonify({"error": "FORBIDDEN"}), 403
+    status = broker_status("bot")
+    response = jsonify({"ok": True, "client": "bot", "revision": revision("bot"), **status})
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.route("/api/site-sync/migration", methods=["POST"])
@@ -291,8 +383,13 @@ def site_export_migration():
         return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
     try:
         import hashlib
+        try:
+            admission = broker_status("bot")
+        except LegacyWriterError:
+            # Readonly exports remain available, but cannot authorize migration commit.
+            admission = {"protocol": 1, "phase": "unknown", "freezeId": None}
         title, allowed = sources[resource]
-        db = get_db()
+        db = get_readonly_db()
         sheet = db.spreadsheet.worksheet(title) if title else db.spreadsheet.sheet1
         if resource == "renewalStatus":
             # write_property_status writes A:D without creating a header row.
@@ -333,7 +430,7 @@ def site_export_migration():
         # The snapshot hash detects changes between pages; no secret or Sheet ID is exported.
         digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
         page = rows[offset:offset + 100]
-        result = {"ok": True, "resource": resource, "rows": page, "total": len(rows), "snapshotHash": digest, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None}
+        result = {"ok": True, "resource": resource, "rows": page, "total": len(rows), "snapshotHash": digest, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None, **admission}
         response = jsonify(result)
         response.headers["Cache-Control"] = "private, no-store"
         return response
@@ -342,6 +439,7 @@ def site_export_migration():
 
 
 @app.route("/api/site-sync/legacy-case-status", methods=["POST"])
+@_legacy_api_operation
 def site_sync_legacy_case_status():
     """Update one owner-only legacy case after it is edited on the bound site."""
     if not os.environ.get("LINE_BRIDGE_SECRET"):
@@ -376,6 +474,7 @@ def _dashboard_cors(response):
 
 @app.route("/api/dashboard/<resource>", methods=["GET", "OPTIONS"])
 @app.route("/api/dashboard/<resource>/<record_id>", methods=["PATCH", "DELETE", "OPTIONS"])
+@_legacy_api_operation
 def dashboard_api(resource, record_id=None):
     if os.environ.get("ENABLE_LEGACY_DASHBOARD", "").lower() != "true":
         return jsonify({"error": "legacy dashboard disabled"}), 404
@@ -479,6 +578,7 @@ def _workspace_reply(event, action):
 
 
 @handler.add(MessageEvent, message=TextMessage)
+@_legacy_event_operation
 def handle_message(event):
     text    = event.message.text.strip()
     user_id = private_user_id(event)
@@ -668,6 +768,7 @@ def handle_message(event):
 
 # ── Postback 處理 ─────────────────────────────────────────
 @handler.add(PostbackEvent)
+@_legacy_event_operation
 def handle_postback(event):
     user_id = private_user_id(event)
     if not user_id:
@@ -1266,6 +1367,7 @@ def verify_key():
             path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
             gc = gspread.service_account(filename=path)
 
+        guard_gspread_client(gc, "bot")
         rows = gc.open_by_key(LICENSE_SHEET_ID).sheet1.get_all_values()
         for row in rows:
             if not row or row[0].strip() != key:
