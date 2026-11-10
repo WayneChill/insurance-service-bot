@@ -276,11 +276,12 @@ def site_export_migration():
     sources = {
         "cases": ("保服案件", ["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司", "網站同步識別"]),
         "newcases": ("新契約追蹤", ["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間", "網站同步識別"]),
-        "payments": ("扣款失敗", ["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "保費", "狀態", "備註", "更新時間", "網站同步識別"]),
+        "payments": ("扣款失敗", ["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "到期日", "保費", "卡號末4碼", "失敗原因", "狀態", "備註", "更新時間", "網站同步識別"]),
         "sales": ("業務追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
         "recruits": ("增員追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
         "schedules": ("行程", ["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"]),
         "cards": ("信用卡", ["姓名", "銀行名", "卡號前4碼", "效期", "備註保單"]),
+        "hibNotices": ("HIB照會紀錄", ["ID", "類型", "保險公司", "姓名", "照會日期", "截止日期", "內容", "電子檔", "同步時間", "狀態"]),
         "renewalStatus": (None, ["保單號碼", "姓名", "狀態"]),
     }
     if not isinstance(user_id, str) or not isinstance(resource, str) or resource not in sources or type(offset) is not int or offset < 0:
@@ -292,8 +293,17 @@ def site_export_migration():
         title, allowed = sources[resource]
         db = get_db()
         sheet = db.spreadsheet.worksheet(title) if title else db.spreadsheet.sheet1
-        values = sheet.get_all_records()
-        rows = [{key: str(row.get(key, "") or "") for key in allowed} for row in values]
+        values = sheet.get_all_records(numericise_ignore=["all"])
+        rows = []
+        for row in values:
+            item = {key: str(row.get(key, "") if row.get(key, "") is not None else "") for key in allowed}
+            if resource == "payments":
+                digits = "".join(c for c in str(row.get("卡號", "") or "") if c.isdigit())
+                item["卡號末4碼"] = digits[-4:] if len(digits) >= 4 else ""
+            if resource == "hibNotices" and item.get("類型") == "扣款失敗":
+                digits = "".join(c for c in item.get("電子檔", "") if c.isdigit())
+                item["電子檔"] = "****" + digits[-4:] if len(digits) >= 4 else ""
+            rows.append(item)
         # The snapshot hash detects changes between pages; no secret or Sheet ID is exported.
         digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
         page = rows[offset:offset + 100]
