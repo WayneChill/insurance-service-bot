@@ -283,6 +283,7 @@ def site_export_migration():
         "cards": ("信用卡", ["姓名", "銀行名", "卡號前4碼", "效期", "備註保單"]),
         "hibNotices": ("HIB照會紀錄", ["ID", "類型", "保險公司", "姓名", "照會日期", "截止日期", "內容", "電子檔", "同步時間", "狀態"]),
         "renewalStatus": (None, ["保單號碼", "姓名", "狀態", "更新時間"]),
+        "siteDocuments": ("網站案件同步", ["去重複鍵", "網站案件ID", "文件類型", "客戶顯示名稱", "保險公司", "網站建立時間", "狀態", "接收時間"]),
     }
     if not isinstance(user_id, str) or not isinstance(resource, str) or resource not in sources or type(offset) is not int or offset < 0:
         return jsonify({"error": "INVALID_INPUT"}), 400
@@ -317,6 +318,9 @@ def site_export_migration():
             values = sheet.get_all_records(numericise_ignore=["all"])
         rows = []
         for row in values:
+            # This relay ledger can contain multiple users; filter before hashing and pagination.
+            if resource == "siteDocuments" and str(row.get("LINE User ID", "")).strip() != user_id:
+                continue
             item = {key: str(row.get(key, "") if row.get(key, "") is not None else "") for key in allowed}
             if resource == "payments":
                 item["更新時間"] = item["更新時間"] or str(row.get("同步時間", "") or "")
