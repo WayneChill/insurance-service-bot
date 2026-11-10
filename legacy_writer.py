@@ -18,6 +18,19 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 PROTOCOL = 1
 DEFAULT_SITE_BASE_URL = "https://claims-assistant.waynechiuchiu.chatgpt.site"
 _local = threading.local()
+# Only these fixed strings may leave an admission failure boundary. Never pass
+# through HTTP bodies, exception text, URLs, credentials, JWTs or OIDC claims.
+_LOCAL_DIAGNOSTICS = frozenset({
+    "INVALID_ADMISSION_ORIGIN", "INVALID_LEGACY_CLIENT", "ADMISSION_NETWORK_UNAVAILABLE",
+    "INVALID_ADMISSION_RESPONSE", "BRIDGE_AUTH_NOT_CONFIGURED", "ACTIONS_OIDC_NOT_CONFIGURED",
+    "ACTIONS_OIDC_UNAVAILABLE", "ADMISSION_NOT_CONFIRMED", "ADMISSION_STATUS_NOT_CONFIRMED",
+    "LEGACY_OPERATION_UNCERTAIN", "PROBE_RELEASE_NOT_CONFIRMED",
+})
+_BROKER_DIAGNOSTICS = frozenset({
+    "INVALID_INPUT", "FORBIDDEN", "LEGACY_OWNER_UNAVAILABLE", "LEGACY_FROZEN",
+    "TOO_MANY_UNRESOLVED_WRITERS", "WRITER_ID_CONFLICT", "OPERATION_ALREADY_FINISHED",
+    "WRITER_NOT_FOUND", "WRITER_OUTCOME_CONFLICT", "INVALID_RESPONSE", "UNRECOGNIZED_ERROR",
+})
 
 
 class LegacyWriterError(RuntimeError):
@@ -30,6 +43,28 @@ class LegacyFrozen(LegacyWriterError):
 
 class LegacyUnavailable(LegacyWriterError):
     pass
+
+
+def _http_diagnostic(status, body):
+    if type(status) is not int or not 100 <= status <= 599:
+        return "ADMISSION_NOT_CONFIRMED"
+    code = body.get("error") if isinstance(body, dict) else None
+    if type(code) is not str or code not in _BROKER_DIAGNOSTICS:
+        code = "UNRECOGNIZED_ERROR" if code is not None else "INVALID_RESPONSE"
+    return "ADMISSION_HTTP_" + str(status) + "_" + code
+
+
+def _safe_diagnostic(error):
+    # Inspect only an exact built-in string argument, never str(error), which
+    # can execute custom formatting or expose a transport's request/body.
+    if isinstance(error, LegacyUnavailable) and len(error.args) == 1 and type(error.args[0]) is str:
+        code = error.args[0]
+        if code in _LOCAL_DIAGNOSTICS:
+            return code
+        match = re.fullmatch(r"ADMISSION_HTTP_([1-5][0-9]{2})_([A-Z_]+)", code)
+        if match and match.group(2) in _BROKER_DIAGNOSTICS:
+            return code
+    return "ADMISSION_NOT_CONFIRMED"
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -118,16 +153,16 @@ def _exchange(client, request_id, action, outcome=None):
     if (status != 200 or body.get("ok") is not True or
             type(body.get("protocol")) is not int or body["protocol"] != PROTOCOL or
             body.get("leaseId") != request_id):
-        raise LegacyUnavailable("ADMISSION_NOT_CONFIRMED")
+        raise LegacyUnavailable(_http_diagnostic(status, body))
 
 
 def _release(client, request_id, outcome):
     try:
         _exchange(client, request_id, "release", outcome)
         return True
-    except Exception:
+    except Exception as error:
         # Deliberately never log a token, HTTP body, customer record, or credentials.
-        print("[Migration] Legacy lease release unconfirmed; reconciliation required", flush=True)
+        print("[Migration] Legacy lease release unconfirmed; reconciliation required: " + _safe_diagnostic(error), flush=True)
         return False
 
 
@@ -181,10 +216,10 @@ def operation(client):
         _exchange(client, request_id, "acquire")
     except LegacyFrozen:
         raise
-    except Exception:
+    except Exception as error:
         # The acquire may have reached the broker. No legacy work has been sent.
         _release(client, request_id, "aborted")
-        raise LegacyUnavailable("ADMISSION_NOT_CONFIRMED") from None
+        raise LegacyUnavailable(_safe_diagnostic(error)) from None
     lease = _Lease(client, request_id)
     _local.lease = lease
     failed = False
