@@ -17,6 +17,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 PROTOCOL = 1
 DEFAULT_SITE_BASE_URL = "https://claims-assistant.waynechiuchiu.chatgpt.site"
+SITE_BROKER_URL = DEFAULT_SITE_BASE_URL + "/api/migration/legacy-writer"
 _local = threading.local()
 # Only these fixed strings may leave an admission failure boundary. Never pass
 # through HTTP bodies, exception text, URLs, credentials, JWTs or OIDC claims.
@@ -25,6 +26,7 @@ _LOCAL_DIAGNOSTICS = frozenset({
     "INVALID_ADMISSION_RESPONSE", "BRIDGE_AUTH_NOT_CONFIGURED", "ACTIONS_OIDC_NOT_CONFIGURED",
     "ACTIONS_OIDC_UNAVAILABLE", "ADMISSION_NOT_CONFIRMED", "ADMISSION_STATUS_NOT_CONFIRMED",
     "LEGACY_OPERATION_UNCERTAIN", "PROBE_RELEASE_NOT_CONFIRMED",
+    "SITES_SERVICE_ACCESS_NOT_CONFIGURED", "SITES_SERVICE_ACCESS_INVALID",
 })
 _BROKER_DIAGNOSTICS = frozenset({
     "INVALID_INPUT", "FORBIDDEN", "LEGACY_OWNER_UNAVAILABLE", "LEGACY_FROZEN",
@@ -75,11 +77,26 @@ class _NoRedirect(HTTPRedirectHandler):
 
 def endpoint():
     base = os.environ.get("SITE_BASE_URL", DEFAULT_SITE_BASE_URL).rstrip("/")
-    parsed = urlsplit(base)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
-            parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/")):
+    try:
+        parsed = urlsplit(base)
+        valid = (parsed.scheme == "https" and
+                 parsed.hostname == "claims-assistant.waynechiuchiu.chatgpt.site" and
+                 parsed.port in (None, 443) and not parsed.username and not parsed.password and
+                 not parsed.query and not parsed.fragment and parsed.path in ("", "/"))
+    except Exception:
+        valid = False
+    if not valid:
         raise LegacyUnavailable("INVALID_ADMISSION_ORIGIN")
-    return base + "/api/migration/legacy-writer"
+    return SITE_BROKER_URL
+
+
+def _service_access_token():
+    token = os.environ.get("SITES_SERVICE_ACCESS_TOKEN", "").strip()
+    if not token:
+        raise LegacyUnavailable("SITES_SERVICE_ACCESS_NOT_CONFIGURED")
+    if len(token) > 16384 or not re.fullmatch(r"[!-~]+", token):
+        raise LegacyUnavailable("SITES_SERVICE_ACCESS_INVALID")
+    return token
 
 
 def revision(client):
@@ -90,15 +107,22 @@ def revision(client):
 
 
 def _request_json(url, token, payload=None):
+    # Only the exact canonical broker URL may receive the Sites service token.
+    # Admission POSTs to another host/path fail before any credentials are sent.
+    if payload is not None and url != SITE_BROKER_URL:
+        raise LegacyUnavailable("INVALID_ADMISSION_ORIGIN")
     data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
     # Sites reserves Authorization for its edge login flow. Carry only the
     # watcher's broker OIDC token separately; GitHub token retrieval and the
     # Bot bridge continue to use the standard Authorization header.
     authorization_header = "X-Legacy-Writer-Authorization" if isinstance(payload, dict) and payload.get("client") == "watcher" else "Authorization"
-    req = Request(url, data=data, method="GET" if payload is None else "POST", headers={
+    headers = {
         authorization_header: "Bearer " + token, "Accept": "application/json",
         "Content-Type": "application/json", "Cache-Control": "no-store",
-    })
+    }
+    if url == SITE_BROKER_URL:
+        headers["OAI-Sites-Authorization"] = "Bearer " + _service_access_token()
+    req = Request(url, data=data, method="GET" if payload is None else "POST", headers=headers)
     try:
         response = build_opener(_NoRedirect()).open(req, timeout=20)
     except HTTPError as error:
@@ -119,13 +143,17 @@ def _request_json(url, token, payload=None):
 
 
 def _authorization(client, audience):
+    if client not in ("bot", "watcher"):
+        raise LegacyUnavailable("INVALID_LEGACY_CLIENT")
+    if audience != SITE_BROKER_URL:
+        raise LegacyUnavailable("INVALID_ADMISSION_ORIGIN")
+    # Fail before retrieving an OIDC token or starting any customer operation.
+    _service_access_token()
     if client == "bot":
         token = os.environ.get("LINE_BRIDGE_SECRET", "").strip()
         if not token:
             raise LegacyUnavailable("BRIDGE_AUTH_NOT_CONFIGURED")
         return token
-    if client != "watcher":
-        raise LegacyUnavailable("INVALID_LEGACY_CLIENT")
     # Official GitHub Actions OIDC request variables. The exact broker URL is aud.
     # https://docs.github.com/en/actions/reference/security/oidc
     url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "")
@@ -174,8 +202,10 @@ def broker_status(client="bot"):
     url = endpoint()
     payload = {"client": client, "action": "status", "requestId": str(uuid.uuid4()), "revision": revision(client)}
     status, body = _request_json(url, _authorization(client, url), payload)
+    if status != 200:
+        raise LegacyUnavailable(_http_diagnostic(status, body))
     phase, freeze_id = body.get("phase"), body.get("freezeId")
-    if (status != 200 or body.get("ok") is not True or type(body.get("protocol")) is not int or
+    if (body.get("ok") is not True or type(body.get("protocol")) is not int or
             body["protocol"] != PROTOCOL or phase not in ("open", "closing", "frozen") or
             (freeze_id is not None and not isinstance(freeze_id, str)) or
             (phase == "frozen" and not freeze_id)):

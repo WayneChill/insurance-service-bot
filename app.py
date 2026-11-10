@@ -53,6 +53,7 @@ from scheduler import start_scheduler
 from site_bridge import bearer_authorized, collect_application_rows, post_json, validate_case_payload, validate_legacy_case_status_payload
 from workspace_relay import private_user_id, workspace_request, has_workspace
 from legacy_writer import (
+    _safe_diagnostic as admission_diagnostic,
     LegacyFrozen, LegacyWriterError, broker_status, guard_gspread_client, legacy_operation,
     mark_uncertain, migration_notice, operation, revision,
 )
@@ -350,7 +351,11 @@ def site_read_application_records():
 def site_migration_protocol():
     if not _bridge_authorized():
         return jsonify({"error": "FORBIDDEN"}), 403
-    status = broker_status("bot")
+    try:
+        status = broker_status("bot")
+    except LegacyWriterError as error:
+        return jsonify({"error": "LEGACY_WRITER_UNAVAILABLE",
+                        "diagnostic": admission_diagnostic(error)}), 503
     response = jsonify({"ok": True, "client": "bot", "revision": revision("bot"), **status})
     response.headers["Cache-Control"] = "private, no-store"
     return response
