@@ -298,6 +298,7 @@ def site_export_migration():
         for row in values:
             item = {key: str(row.get(key, "") if row.get(key, "") is not None else "") for key in allowed}
             if resource == "payments":
+                item["更新時間"] = item["更新時間"] or str(row.get("同步時間", "") or "")
                 digits = "".join(c for c in str(row.get("卡號", "") or "") if c.isdigit())
                 item["卡號末4碼"] = digits[-4:] if len(digits) >= 4 else ""
             if resource == "hibNotices" and item.get("類型") == "扣款失敗":
