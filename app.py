@@ -263,6 +263,48 @@ def site_read_application_records():
     return jsonify({"ok": True, "rows": page, "total": len(rows), "skipped": skipped, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None})
 
 
+
+@app.route("/api/site-sync/migration", methods=["POST"])
+def site_export_migration():
+    """Owner-only read-only export for moving existing records into the website."""
+    if not _bridge_authorized():
+        return jsonify({"error": "FORBIDDEN"}), 403
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or set(body) - {"lineUserId", "resource", "offset"}:
+        return jsonify({"error": "INVALID_INPUT"}), 400
+    user_id, resource, offset = body.get("lineUserId"), body.get("resource"), body.get("offset", 0)
+    sources = {
+        "cases": ("保服案件", ["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司", "網站同步識別"]),
+        "newcases": ("新契約追蹤", ["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間", "網站同步識別"]),
+        "payments": ("扣款失敗", ["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "保費", "狀態", "備註", "更新時間", "網站同步識別"]),
+        "sales": ("業務追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
+        "recruits": ("增員追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
+        "schedules": ("行程", ["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"]),
+        "cards": ("信用卡", ["姓名", "銀行名", "卡號前4碼", "效期", "備註保單"]),
+        "renewalStatus": (None, ["保單號碼", "姓名", "狀態"]),
+    }
+    if not isinstance(user_id, str) or not isinstance(resource, str) or resource not in sources or type(offset) is not int or offset < 0:
+        return jsonify({"error": "INVALID_INPUT"}), 400
+    if not _legacy_data_authorized(user_id) or not has_workspace(user_id):
+        return jsonify({"error": "LEGACY_DATA_FORBIDDEN"}), 403
+    try:
+        import hashlib
+        title, allowed = sources[resource]
+        db = get_db()
+        sheet = db.spreadsheet.worksheet(title) if title else db.spreadsheet.sheet1
+        values = sheet.get_all_records()
+        rows = [{key: str(row.get(key, "") or "") for key in allowed} for row in values]
+        # The snapshot hash detects changes between pages; no secret or Sheet ID is exported.
+        digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        page = rows[offset:offset + 100]
+        result = {"ok": True, "resource": resource, "rows": page, "total": len(rows), "snapshotHash": digest, "nextOffset": offset + len(page) if offset + len(page) < len(rows) else None}
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "private, no-store"
+        return response
+    except Exception:
+        return jsonify({"error": "SOURCE_UNAVAILABLE"}), 502
+
+
 @app.route("/api/site-sync/legacy-case-status", methods=["POST"])
 def site_sync_legacy_case_status():
     """Update one owner-only legacy case after it is edited on the bound site."""
@@ -1247,4 +1289,5 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+
 
