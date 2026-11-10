@@ -276,13 +276,13 @@ def site_export_migration():
     sources = {
         "cases": ("保服案件", ["案件ID", "客戶姓名", "服務項目", "保單號碼", "狀態", "備註", "建立時間", "更新時間", "保險公司", "網站同步識別"]),
         "newcases": ("新契約追蹤", ["ID", "姓名", "保險公司", "階段", "備註", "建立時間", "更新時間", "網站同步識別"]),
-        "payments": ("扣款失敗", ["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "到期日", "保費", "卡號末4碼", "失敗原因", "狀態", "備註", "更新時間", "網站同步識別"]),
+        "payments": ("扣款失敗", ["ID", "公司", "要保人", "保單號碼", "類別", "轉帳日", "到期日", "保費", "卡號末4碼", "失敗原因", "來源警示", "狀態", "備註", "更新時間", "網站同步識別"]),
         "sales": ("業務追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
         "recruits": ("增員追蹤", ["ID", "姓名", "電話", "階段", "備註", "建立時間", "更新時間"]),
         "schedules": ("行程", ["ID", "日期", "時間", "類型", "標題", "備註", "建立時間"]),
         "cards": ("信用卡", ["姓名", "銀行名", "卡號前4碼", "效期", "備註保單"]),
         "hibNotices": ("HIB照會紀錄", ["ID", "類型", "保險公司", "姓名", "照會日期", "截止日期", "內容", "電子檔", "同步時間", "狀態"]),
-        "renewalStatus": (None, ["保單號碼", "姓名", "狀態"]),
+        "renewalStatus": (None, ["保單號碼", "姓名", "狀態", "更新時間"]),
     }
     if not isinstance(user_id, str) or not isinstance(resource, str) or resource not in sources or type(offset) is not int or offset < 0:
         return jsonify({"error": "INVALID_INPUT"}), 400
@@ -293,7 +293,28 @@ def site_export_migration():
         title, allowed = sources[resource]
         db = get_db()
         sheet = db.spreadsheet.worksheet(title) if title else db.spreadsheet.sheet1
-        values = sheet.get_all_records(numericise_ignore=["all"])
+        if resource == "renewalStatus":
+            # write_property_status writes A:D without creating a header row.
+            raw_values = sheet.get_all_values()
+            if raw_values and str(raw_values[0][0]).strip() == "保單號碼":
+                raw_values = raw_values[1:]
+            values = [dict(zip(["保單號碼", "姓名", "狀態", "更新時間"], (row + [""] * 4)[:4])) for row in raw_values if any(str(v).strip() for v in row)]
+        elif resource == "payments":
+            raw_values = sheet.get_all_values()
+            headers = raw_values[0] if raw_values else []
+            values = []
+            for raw_row in raw_values[1:]:
+                row = {key: raw_row[i] if i < len(raw_row) else "" for i, key in enumerate(headers) if key}
+                if len(headers) >= 8 and headers[6:8] == ["保費", "狀態"] and len(raw_row) >= 12 and re.fullmatch(r"\d{4}[/.-]\d{2}[/.-]\d{2} \d{2}:\d{2}(?::\d{2})?", str(raw_row[11]).strip()):
+                    # Old HIB writer appended 12 columns under the Bot's 10-column header.
+                    # A subsequent Bot status write may have overwritten the amount in H.
+                    stages = {"待處理", "已通知", "已聯絡", "已送出", "已完成"}
+                    original_h = str(raw_row[7]).strip()
+                    stage = original_h if original_h in stages else (str(raw_row[10]).strip() if str(raw_row[10]).strip() in stages else "待確認")
+                    row.update({"到期日": raw_row[6], "保費": "" if original_h in stages else original_h, "卡號": raw_row[8], "失敗原因": raw_row[9], "狀態": stage, "備註": ("原始附註欄（可能含卡號或備註）：" + re.sub(r"\d[\d -]{10,}\d", lambda m: "****" + "".join(c for c in m.group() if c.isdigit())[-4:], str(raw_row[8]))) if str(raw_row[8]).strip() else "", "更新時間": raw_row[11], "網站同步識別": raw_row[10] if str(raw_row[10]).startswith("line-payment:") else "", "來源警示": "舊掃描欄位曾錯位，已依原寫入順序還原；原因欄內容仍需核對。" + ("原始處理狀態無法確認。" if stage == "待確認" else ("原保費已被後續狀態覆蓋，未推測金額。" if original_h in stages else ""))})
+                values.append(row)
+        else:
+            values = sheet.get_all_records(numericise_ignore=["all"])
         rows = []
         for row in values:
             item = {key: str(row.get(key, "") if row.get(key, "") is not None else "") for key in allowed}
